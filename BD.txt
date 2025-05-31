@@ -1,0 +1,63 @@
+CREATE TABLE usuarios (
+    id SERIAL,
+    correo_electronico VARCHAR(255) NOT NULL,
+    contrasena VARCHAR(255) NOT NULL,
+    nombre VARCHAR(100),
+    apellidos VARCHAR(100),
+    nombre_completo VARCHAR(200) GENERATED ALWAYS AS (concat_ws(' ', nombre, apellidos)) STORED,
+    url_foto_perfil VARCHAR(2048),
+    numero_telefono VARCHAR(50),
+    esta_activo BOOLEAN DEFAULT TRUE,
+    correo_verificado_en TIMESTAMP NULL,
+    ultimo_inicio_sesion_en TIMESTAMP NULL,
+    zona_horaria VARCHAR(100) DEFAULT 'UTC',
+    idioma VARCHAR(10) DEFAULT 'es',
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE proyectos_codigo (
+    id SERIAL,
+    usuario_id INT NOT NULL,
+    nombre_proyecto VARCHAR(255) NOT NULL,
+    descripcion TEXT,
+    lenguaje_programacion VARCHAR(50),
+    contenido_codigo TEXT,
+    ruta_almacenamiento_codigo VARCHAR(2048),
+    estado_procesamiento VARCHAR(20) DEFAULT 'pendiente' CHECK (estado_procesamiento IN ('pendiente', 'subiendo', 'procesando', 'completado', 'error_subida', 'error_analisis')),
+    ultimo_analisis_en TIMESTAMP NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE documentos_generados (
+    id SERIAL,
+    proyecto_codigo_id INT NOT NULL,
+    usuario_id INT NOT NULL,
+    tipo_documento VARCHAR(100) NOT NULL,
+    formato_salida VARCHAR(20) DEFAULT 'texto_plano' CHECK (formato_salida IN ('texto_plano', 'markdown', 'pdf_url', 'json')),
+    contenido_documento TEXT,
+    url_documento VARCHAR(2048),
+    version VARCHAR(20) DEFAULT '1.0',
+    parametros_generacion_json TEXT,
+    generado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE usuarios ADD PRIMARY KEY (id);
+
+ALTER TABLE proyectos_codigo ADD PRIMARY KEY (id);
+
+ALTER TABLE documentos_generados ADD PRIMARY KEY (id);
+
+ALTER TABLE proyectos_codigo
+ADD CONSTRAINT fk_proyecto_usuario
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+
+ALTER TABLE documentos_generados
+ADD CONSTRAINT fk_documento_proyecto
+FOREIGN KEY (proyecto_codigo_id) REFERENCES proyectos_codigo(id) ON DELETE CASCADE;
+
+ALTER TABLE documentos_generados
+ADD CONSTRAINT fk_documento_usuario
+FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
