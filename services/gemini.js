@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiService {
     constructor() {
@@ -26,9 +26,7 @@ class GeminiService {
         }
         
         try {
-            this.ai = new GoogleGenAI({ 
-                apiKey: this.apiKeys[this.currentKeyIndex] 
-            });
+            this.ai = new GoogleGenerativeAI(this.apiKeys[this.currentKeyIndex]);
             console.log(`✅ Gemini inicializado con API key ${this.currentKeyIndex + 1}`);
         } catch (error) {
             console.error('❌ Error al inicializar Gemini:', error);
@@ -61,12 +59,10 @@ class GeminiService {
             try {
                 console.log(`🔍 Analizando código con Gemini (intento ${intentos + 1}/${maxIntentos})`);
                 
-                const response = await this.ai.models.generateContent({
-                    model: "gemini-2.0-flash",
-                    contents: prompt,
-                });
+                const model = this.ai.getGenerativeModel({ model: "gemini-pro" });
+                const response = await model.generateContent(prompt);
                 
-                const analisis = response.text;
+                const analisis = response.response.text();
                 
                 console.log('✅ Análisis completado exitosamente');
                 return {
@@ -252,14 +248,12 @@ Genera el documento en formato markdown, bien estructurado y profesional.
         
         while (intentos < maxIntentos) {
             try {
-                const response = await this.ai.models.generateContent({
-                    model: "gemini-2.0-flash",
-                    contents: prompt,
-                });
+                const model = this.ai.getGenerativeModel({ model: "gemini-pro" });
+                const response = await model.generateContent(prompt);
                 
                 return {
                     success: true,
-                    contenido: response.text,
+                    contenido: response.response.text(),
                     api_key_usada: this.currentKeyIndex + 1
                 };
                 
