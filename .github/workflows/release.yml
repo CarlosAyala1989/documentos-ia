@@ -27,7 +27,7 @@ jobs:
       - name: 📤 Crear Release
         uses: softprops/action-gh-release@v2
         with:
-          github_token: ${{ secrets.GH_PAT }}
+          github_token: ${{ secrets.github_token}}
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: "Release automático para backend de Node.js"
