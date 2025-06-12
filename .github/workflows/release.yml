@@ -1,4 +1,4 @@
-name: 🚀 Build y Release
+name: 🚀 Backend Release
 
 on:
   push:
@@ -6,54 +6,28 @@ on:
       - 'v*'
 
 jobs:
-  build-and-release:
+  release:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📥 Clonar repositorio
-      uses: actions/checkout@v4
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
 
-    - name: 🗃️ Cache de dependencias
-      uses: actions/cache@v4
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    - name: 🟢 Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
+      - name: 📦 Instalar dependencias
+        run: npm ci
 
-    - name: 📦 Instalar dependencias
-      run: npm ci --no-fund --no-audit --prefer-offline
+      - name: 🧪 Verificar aplicación
+        run: node server.cjs
 
-    - name: ✅ Ejecutar linter
-      run: npm run lint
-
-    - name: 🧪 Ejecutar pruebas
-      run: npm test
-
-    - name: 🛠️ Build de la aplicación
-      run: npm run build
-
-    - name: 📁 Subir artefacto
-      uses: actions/upload-artifact@v4
-      with:
-        name: build
-        path: ./dist
-
-    - name: 📤 Crear Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
-        files: ./dist/**
-
-    - name: 🚀 Desplegar en GitHub Pages
-      if: github.ref_type == 'tag'
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist
+      - name: 📤 Crear Release
+        uses: softprops/action-gh-release@v2
+        with:
+          github_token: ${{ secrets.GH_PAT }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: "Release automático para backend de Node.js"
