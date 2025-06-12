@@ -594,6 +594,7 @@ const codeFilesSelected = document.getElementById('codeFilesSelected');
 const codeFilesList = document.getElementById('codeFilesList');
 const completarDocumentoBtn = document.getElementById('completarDocumentoBtn');
 const generarDiagramasBtn = document.getElementById('generarDiagramasBtn');
+const generarMermaidBtn = document.getElementById('generarMermaidBtn');
 const resultadosDocumento = document.getElementById('resultadosDocumento');
 
 // Eventos para documento personalizado
@@ -625,6 +626,10 @@ if (completarDocumentoBtn) {
 
 if (generarDiagramasBtn) {
     generarDiagramasBtn.addEventListener('click', generarSoloDiagramas);
+}
+
+if (generarMermaidBtn) {
+    generarMermaidBtn.addEventListener('click', generarSoloMermaid);
 }
 
 // Funciones para documento personalizado
@@ -703,6 +708,10 @@ function verificarArchivosCompletos() {
     
     if (generarDiagramasBtn) {
         generarDiagramasBtn.disabled = !codigoListo;
+    }
+    
+    if (generarMermaidBtn) {
+        generarMermaidBtn.disabled = !codigoListo;
     }
 }
 
@@ -789,6 +798,49 @@ async function generarSoloDiagramas() {
     } catch (error) {
         console.error('Error:', error);
         alert('Error al generar diagramas: ' + error.message);
+    } finally {
+        loadingSpinner.style.display = 'none';
+    }
+}
+
+// Generar solo diagramas Mermaid
+async function generarSoloMermaid() {
+    if (selectedCodeFiles.length === 0) {
+        alert('Por favor, selecciona archivos de código');
+        return;
+    }
+    
+    const tipoDiagrama = prompt('¿Qué tipo de diagrama Mermaid deseas generar?\n\nOpciones:\n- classDiagram\n- sequenceDiagram\n- flowchart\n- gitgraph\n- erDiagram\n- stateDiagram', 'classDiagram');
+    
+    if (!tipoDiagrama) return;
+    
+    loadingSpinner.style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        
+        selectedCodeFiles.forEach((file) => {
+            formData.append('archivos', file);
+        });
+        
+        formData.append('tipo_diagrama', tipoDiagrama);
+        
+        const response = await fetch('/api/proyectos/generar-diagramas-mermaid', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarDiagramasMermaid(data);
+        } else {
+            throw new Error(data.error || 'Error al generar diagramas Mermaid');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar diagramas Mermaid: ' + error.message);
     } finally {
         loadingSpinner.style.display = 'none';
     }
@@ -951,6 +1003,87 @@ function mostrarDiagramasUML(data) {
     window.currentDiagramasUML = data;
 }
 
+// Mostrar diagramas Mermaid
+function mostrarDiagramasMermaid(data) {
+    resultadosDocumento.innerHTML = `
+        <div class="container">
+            <h2 class="text-center mb-5 fw-bold">🧜‍♀️ Diagramas Mermaid Generados</h2>
+            
+            <div class="result-section">
+                <h4 class="fw-bold mb-3">
+                    <i class="fas fa-sitemap text-success me-2"></i>
+                    Diagrama de ${data.tipo_diagrama.charAt(0).toUpperCase() + data.tipo_diagrama.slice(1)}
+                </h4>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Información del Diagrama:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Tipo:</strong> ${data.tipo_diagrama}</li>
+                            <li><strong>Archivos procesados:</strong> ${data.archivos_procesados}</li>
+                            <li><strong>Validado:</strong> <span class="badge ${data.validado ? 'bg-success' : 'bg-warning'}">${data.validado ? 'Sí' : 'No'}</span></li>
+                            <li><strong>Optimizado:</strong> <span class="badge ${data.optimizado ? 'bg-success' : 'bg-warning'}">${data.optimizado ? 'Sí' : 'No'}</span></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Acciones:</h6>
+                        <button class="btn btn-info btn-sm me-2" onclick="descargarSoloMermaid()">
+                            <i class="fas fa-download me-1"></i>Descargar Mermaid
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="limpiarDocumentoPersonalizado()">
+                            <i class="fas fa-refresh me-1"></i>Generar Otro
+                        </button>
+                    </div>
+                </div>
+                
+                ${data.imagenes_urls ? `
+                <div class="mb-4">
+                    <h5 class="fw-bold mb-3">🖼️ Vista Previa del Diagrama:</h5>
+                    <div class="text-center mb-3">
+                        <img src="${data.imagenes_urls.png}" alt="Diagrama Mermaid" class="img-fluid" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    <div class="text-center">
+                        <a href="${data.imagenes_urls.png}" target="_blank" class="btn btn-success btn-sm me-2">
+                            <i class="fas fa-image me-1"></i>Ver PNG
+                        </a>
+                        <a href="${data.imagenes_urls.svg}" target="_blank" class="btn btn-primary btn-sm me-2">
+                            <i class="fas fa-vector-square me-1"></i>Ver SVG
+                        </a>
+                        <a href="${data.imagenes_urls.pdf}" target="_blank" class="btn btn-danger btn-sm">
+                            <i class="fas fa-file-pdf me-1"></i>Ver PDF
+                        </a>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div class="mb-4">
+                    <h5 class="fw-bold mb-3">📝 Código Mermaid:</h5>
+                    <div class="mermaid-contenido p-3 bg-dark text-light border rounded">
+                        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">${data.codigo_mermaid}</pre>
+                    </div>
+                    ${!data.imagenes_urls ? `
+                    <div class="alert alert-info mt-3">
+                        <h6>💡 Para visualizar el diagrama:</h6>
+                        <ol>
+                            <li>Copia el código Mermaid de arriba</li>
+                            <li>Ve a <a href="https://mermaid.live" target="_blank" class="text-info">Mermaid Live Editor</a></li>
+                            <li>Pega el código en el editor</li>
+                            <li>Descarga tu diagrama en PNG, SVG o PDF</li>
+                        </ol>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    resultadosDocumento.style.display = 'block';
+    resultadosDocumento.scrollIntoView({ behavior: 'smooth' });
+    
+    // Guardar datos para descarga
+    window.currentDiagramasMermaid = data;
+}
+
 // Funciones de descarga
 function descargarDocumentoCompletado() {
     if (!window.currentDocumentoCompletado) {
@@ -1014,6 +1147,28 @@ function descargarSoloDiagramas() {
     URL.revokeObjectURL(url);
 }
 
+// Descargar solo diagramas Mermaid
+function descargarSoloMermaid() {
+    if (!window.currentDiagramasMermaid) {
+        alert('No hay diagramas Mermaid disponibles para descargar');
+        return;
+    }
+    
+    const data = window.currentDiagramasMermaid;
+    const contenido = data.codigo_mermaid;
+    
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Diagrama-Mermaid-${data.tipo_diagrama}-${new Date().toISOString().split('T')[0]}.mmd`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function limpiarDocumentoPersonalizado() {
     selectedPDF = null;
     selectedCodeFiles = [];
@@ -1029,4 +1184,5 @@ function limpiarDocumentoPersonalizado() {
     
     window.currentDocumentoCompletado = null;
     window.currentDiagramasUML = null;
+    window.currentDiagramasMermaid = null;
 }

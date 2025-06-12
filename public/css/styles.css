@@ -153,3 +153,31 @@ body {
     max-height: 300px;
     overflow-y: auto;
 }
+
+
+/* Estilos para contenido Mermaid */
+.mermaid-contenido {
+    background-color: #2d3748 !important;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.mermaid-contenido pre {
+    color: #e2e8f0;
+    font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Botón Mermaid */
+#generarMermaidBtn {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+#generarMermaidBtn:hover {
+    background: linear-gradient(135deg, #38a169, #2f855a);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+}

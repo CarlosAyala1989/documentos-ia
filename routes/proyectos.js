@@ -405,3 +405,89 @@ router.post('/generar-diagramas-uml', requireAuth, upload.array('archivos', 50),
         });
     }
 });
+
+// Nueva ruta: Generar solo diagramas Mermaid
+router.post('/generar-diagramas-mermaid', requireAuth, upload.array('archivos', 50), async (req, res) => {
+    try {
+        const archivos = req.files;
+        const { tipo_diagrama } = req.body;
+        
+        if (!archivos || archivos.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Se requieren archivos de código para generar diagramas'
+            });
+        }
+        
+        console.log(`🎨 Usuario ${req.session.user.email} generando diagramas Mermaid: ${tipo_diagrama}`);
+        
+        // Procesar archivos y obtener análisis
+        const todosLosArchivos = [];
+        
+        for (const archivo of archivos) {
+            if (archivo.mimetype === 'application/zip' || archivo.mimetype === 'application/x-rar-compressed') {
+                const archivosExtraidos = await extraerArchivosComprimidos(archivo.buffer, archivo.originalname);
+                todosLosArchivos.push(...archivosExtraidos);
+            } else {
+                const contenido = archivo.buffer.toString('utf-8');
+                todosLosArchivos.push({
+                    nombre: archivo.originalname,
+                    contenido: contenido,
+                    tamaño: archivo.size
+                });
+            }
+        }
+        
+        // Analizar todos los archivos
+        let analisisCompleto = '';
+        for (const archivo of todosLosArchivos) {
+            const resultado = await geminiService.analizarCodigo(
+                archivo.contenido,
+                archivo.nombre
+            );
+            
+            if (resultado.success) {
+                analisisCompleto += `\n\n=== ANÁLISIS DE ${archivo.nombre} ===\n${resultado.analisis}`;
+            }
+        }
+        
+        // Generar diagramas Mermaid con validación múltiple
+        const resultado = await geminiService.generarMermaidValidado(
+            analisisCompleto,
+            tipo_diagrama || 'classDiagram'
+        );
+        
+        if (!resultado.success) {
+            console.error('❌ Error al generar diagramas Mermaid:', resultado.error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error al generar diagramas Mermaid',
+                details: resultado.error
+            });
+        }
+        
+        // Generar URLs de imágenes
+        const imagenes = await geminiService.generarImagenMermaid(resultado.codigo_mermaid);
+        
+        console.log('✅ Diagramas Mermaid generados exitosamente');
+        
+        res.status(200).json({
+            success: true,
+            codigo_mermaid: resultado.codigo_mermaid,
+            imagenes_urls: imagenes.success ? imagenes.urls : null,
+            validado: resultado.validado,
+            optimizado: resultado.optimizado,
+            tipo_diagrama: tipo_diagrama || 'classDiagram',
+            archivos_procesados: todosLosArchivos.length,
+            api_keys_usadas: resultado.api_keys_usadas
+        });
+        
+    } catch (error) {
+        console.error('❌ Error general al generar diagramas Mermaid:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error interno del servidor al generar diagramas',
+            details: error.message
+        });
+    }
+});

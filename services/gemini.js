@@ -629,6 +629,292 @@ Devuelve únicamente el código PlantUML optimizado y sin que agregues cosas com
             .replace(/%23/g, "#")
             .replace(/%40/g, "@");
     }
+
+    async generarDiagramasMermaid(analisisProyecto, tipoDiagrama = 'classDiagram') {
+        if (!this.ai) {
+            throw new Error('Gemini no está inicializado correctamente');
+        }
+    
+        const prompt = `
+    Como experto en Mermaid y arquitectura de software, genera código Mermaid para crear diagramas basados en el siguiente análisis de código:
+    
+    **ANÁLISIS DEL PROYECTO:**
+    ${analisisProyecto}
+    
+    **TIPO DE DIAGRAMA SOLICITADO:** ${tipoDiagrama}
+    
+    **INSTRUCCIONES:**
+    1. Analiza el código y identifica las clases, métodos, relaciones y dependencias
+    2. Genera código Mermaid apropiado para el tipo de diagrama solicitado
+    3. Incluye comentarios explicativos en el código Mermaid
+    4. Asegúrate de que el diagrama sea claro y profesional
+    5. Usa la sintaxis Mermaid estándar y moderna
+    
+    **TIPOS DE DIAGRAMAS DISPONIBLES:**
+    - classDiagram: Diagrama de clases mostrando estructura y relaciones
+    - sequenceDiagram: Diagrama de secuencia mostrando flujo de ejecución
+    - flowchart: Diagrama de flujo mostrando procesos
+    - gitgraph: Diagrama de git para control de versiones
+    - erDiagram: Diagrama entidad-relación para bases de datos
+    - stateDiagram: Diagrama de estados
+    
+    **FORMATO DE RESPUESTA:**
+    Devuelve únicamente el código Mermaid válido, sin explicaciones adicionales, en el siguiente formato:
+    
+    \`\`\`mermaid
+    ${tipoDiagrama}
+    [código Mermaid aquí]
+    \`\`\`
+        `;
+    
+        return await this.procesarConGemini(prompt);
+    }
+    
+    // Función para limpiar el código Mermaid eliminando marcadores
+    limpiarCodigoMermaid(codigoRaw) {
+        if (!codigoRaw || typeof codigoRaw !== 'string') {
+            return codigoRaw;
+        }
+        
+        let lineas = codigoRaw.split('\n');
+        
+        // Eliminar primera línea si contiene ```mermaid
+        if (lineas.length > 0 && lineas[0].trim().includes('```mermaid')) {
+            lineas.shift();
+        }
+        
+        // Eliminar última línea si contiene ```
+        if (lineas.length > 0 && lineas[lineas.length - 1].trim() === '```') {
+            lineas.pop();
+        }
+        
+        let codigoCompleto = lineas.join('\n').trim();
+        
+        // Verificar que tenga un tipo de diagrama válido al inicio
+        const tiposDiagrama = ['classDiagram', 'sequenceDiagram', 'flowchart', 'gitgraph', 'erDiagram', 'stateDiagram'];
+        const tieneTipo = tiposDiagrama.some(tipo => codigoCompleto.includes(tipo));
+        
+        if (!tieneTipo) {
+            // Si no tiene tipo, agregar classDiagram por defecto
+            return 'classDiagram\n' + codigoCompleto;
+        }
+        
+        return codigoCompleto.trim();
+    }
+    
+    // Validar código Mermaid
+    async validarMermaid(codigoMermaid, tipoDiagrama) {
+        const prompt = `
+    Como experto en Mermaid, valida y corrige el siguiente código Mermaid para un diagrama de ${tipoDiagrama}:
+    
+    ${codigoMermaid}
+    
+    **INSTRUCCIONES:**
+    1. Verifica que la sintaxis Mermaid sea correcta
+    2. Asegúrate de que tenga el tipo de diagrama correcto
+    3. Corrige cualquier error de sintaxis
+    4. Verifica que las relaciones estén bien definidas
+    5. Asegúrate de que el código sea válido y funcional
+    
+    **FORMATO DE RESPUESTA:**
+    Devuelve únicamente el código Mermaid corregido, sin explicaciones adicionales:
+    
+    \`\`\`mermaid
+    [código Mermaid corregido aquí]
+    \`\`\`
+        `;
+    
+        return await this.procesarConGemini(prompt);
+    }
+    
+    // Optimizar código Mermaid
+    async optimizarMermaid(codigoMermaid, tipoDiagrama) {
+        const prompt = `
+    Como experto en Mermaid, optimiza el siguiente código para crear un diagrama de ${tipoDiagrama} simple y claro:
+    
+    ${codigoMermaid}
+    
+    **INSTRUCCIONES:**
+    1. Mantén el código Mermaid simple y básico
+    2. NO agregues colores, estilos ni elementos visuales especiales
+    3. Enfócate únicamente en la estructura y relaciones del código
+    4. Optimiza solo la organización y claridad de las relaciones
+    5. Usa la sintaxis Mermaid estándar sin decoraciones
+    6. Mantén toda la funcionalidad original
+    
+    **FORMATO DE RESPUESTA:**
+    Devuelve únicamente el código Mermaid optimizado:
+    
+    \`\`\`mermaid
+    [código Mermaid optimizado aquí]
+    \`\`\`
+        `;
+    
+        return await this.procesarConGemini(prompt);
+    }
+    
+    // Generar Mermaid con validación múltiple
+    async generarMermaidValidado(analisisProyecto, tipoDiagrama = 'classDiagram') {
+        console.log('🔄 Iniciando generación de Mermaid con validación múltiple...');
+        
+        try {
+            // Primera API: Generación inicial del código Mermaid
+            console.log('🎨 Paso 1: Generando código Mermaid inicial...');
+            const generacionInicial = await this.generarDiagramasMermaid(analisisProyecto, tipoDiagrama);
+            
+            if (!generacionInicial.success) {
+                throw new Error('Error en generación inicial: ' + generacionInicial.error);
+            }
+    
+            // Limpiar código inicial
+            const codigoInicialLimpio = this.limpiarCodigoMermaid(generacionInicial.contenido);
+    
+            // Segunda API: Validación y corrección del código Mermaid
+            console.log('✅ Paso 2: Validando y corrigiendo código Mermaid...');
+            const validacion = await this.validarMermaid(codigoInicialLimpio, tipoDiagrama);
+            
+            if (!validacion.success) {
+                console.warn('⚠️ Error en validación, usando código original');
+            }
+    
+            // Limpiar código validado
+            const codigoValidadoLimpio = validacion.success ? 
+                this.limpiarCodigoMermaid(validacion.contenido) : codigoInicialLimpio;
+    
+            // Tercera API: Optimización del código Mermaid
+            console.log('🚀 Paso 3: Optimizando código Mermaid...');
+            const optimizacion = await this.optimizarMermaid(codigoValidadoLimpio, tipoDiagrama);
+            
+            // Limpiar código final
+            const codigoFinalLimpio = optimizacion.success ? 
+                this.limpiarCodigoMermaid(optimizacion.contenido) : codigoValidadoLimpio;
+    
+            console.log('✅ Generación de Mermaid completada exitosamente');
+            
+            return {
+                success: true,
+                codigo_mermaid: codigoFinalLimpio,
+                validado: validacion.success,
+                optimizado: optimizacion.success,
+                api_keys_usadas: [
+                    generacionInicial.api_key_usada,
+                    validacion.api_key_usada,
+                    optimizacion.api_key_usada
+                ].filter(Boolean)
+            };
+            
+        } catch (error) {
+            console.error('❌ Error en generación validada:', error);
+            return {
+                success: false,
+                error: error.message,
+                codigo_mermaid: null
+            };
+        }
+    }
+    
+    // Generar imagen Mermaid usando Mermaid.ink
+    // Función principal que intenta múltiples servicios
+    async generarImagenMermaid(codigoMermaid) {
+        try {
+            // Limpiar el código antes de generar la imagen
+            const codigoLimpio = this.limpiarCodigoMermaid(codigoMermaid);
+            
+            // Intentar con Mermaid.ink usando encodeURIComponent
+            const codigoCodificado = encodeURIComponent(codigoLimpio);
+            
+            // URLs para Mermaid.ink
+            const baseUrlMermaid = 'https://mermaid.ink';
+            
+            const urlsMermaid = {
+                png: `${baseUrlMermaid}/img/${codigoCodificado}`,
+                svg: `${baseUrlMermaid}/svg/${codigoCodificado}`,
+                pdf: `${baseUrlMermaid}/pdf/${codigoCodificado}`
+            };
+            
+            // Intentar con Kroki como respaldo
+            const baseUrlKroki = 'https://kroki.io';
+            const codigoCodificadoKroki = Buffer.from(codigoLimpio).toString('base64');
+            
+            const urlsKroki = {
+                png: `${baseUrlKroki}/mermaid/png/${codigoCodificadoKroki}`,
+                svg: `${baseUrlKroki}/mermaid/svg/${codigoCodificadoKroki}`,
+                pdf: `${baseUrlKroki}/mermaid/pdf/${codigoCodificadoKroki}`
+            };
+            
+            return {
+                success: true,
+                urls: {
+                    mermaid_ink: urlsMermaid,
+                    kroki: urlsKroki,
+                    // URLs principales (usando Mermaid.ink por defecto)
+                    png: urlsMermaid.png,
+                    svg: urlsMermaid.svg,
+                    pdf: urlsMermaid.pdf
+                },
+                codigo_original: codigoLimpio,
+                servicios_disponibles: ['mermaid.ink', 'kroki']
+            };
+            
+        } catch (error) {
+            console.error('❌ Error al generar imagen Mermaid:', error);
+            return {
+                success: false,
+                error: error.message,
+                urls: null
+            };
+        }
+    }
+    
+    // Función auxiliar para Mermaid.ink (opcional, para compatibilidad futura)
+    async generarImagenMermaidInk(codigoMermaid) {
+        try {
+            const codigoLimpio = this.limpiarCodigoMermaid(codigoMermaid);
+            const codigoCodificado = encodeURIComponent(codigoLimpio);
+            const baseUrl = 'https://mermaid.ink';
+            
+            return {
+                success: true,
+                urls: {
+                    png: `${baseUrl}/img/${codigoCodificado}`,
+                    svg: `${baseUrl}/svg/${codigoCodificado}`,
+                    pdf: `${baseUrl}/pdf/${codigoCodificado}`
+                },
+                codigo_original: codigoLimpio
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                urls: null
+            };
+        }
+    }
+    
+    // Función auxiliar para Kroki (opcional, para compatibilidad futura)
+    async generarImagenMermaidKroki(codigoMermaid) {
+        try {
+            const codigoLimpio = this.limpiarCodigoMermaid(codigoMermaid);
+            const codigoCodificado = Buffer.from(codigoLimpio).toString('base64');
+            const baseUrl = 'https://kroki.io';
+            
+            return {
+                success: true,
+                urls: {
+                    png: `${baseUrl}/mermaid/png/${codigoCodificado}`,
+                    svg: `${baseUrl}/mermaid/svg/${codigoCodificado}`,
+                    pdf: `${baseUrl}/mermaid/pdf/${codigoCodificado}`
+                },
+                codigo_original: codigoLimpio
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                urls: null
+            };
+        }
+    }
 }
 
 module.exports = new GeminiService();
