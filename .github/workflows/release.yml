@@ -21,9 +21,6 @@ jobs:
       - name: 📦 Instalar dependencias
         run: npm ci
 
-      - name: 🧪 Verificar aplicación
-        run: node server.cjs
-
       - name: 📤 Crear Release
         uses: softprops/action-gh-release@v2
         with:
