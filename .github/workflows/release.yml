@@ -3,7 +3,7 @@ name: 🚀 Build y Release
 on:
   push:
     tags:
-      - 'v*' # se ejecuta al crear un tag como v1.0.0
+      - 'v*'
 
 jobs:
   build-and-release:
@@ -13,13 +13,27 @@ jobs:
     - name: 📥 Clonar repositorio
       uses: actions/checkout@v4
 
+    - name: 🗃️ Cache de dependencias
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
     - name: 🟢 Configurar Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
 
     - name: 📦 Instalar dependencias
-      run: npm install
+      run: npm ci --no-fund --no-audit --prefer-offline
+
+    - name: ✅ Ejecutar linter
+      run: npm run lint
+
+    - name: 🧪 Ejecutar pruebas
+      run: npm test
 
     - name: 🛠️ Build de la aplicación
       run: npm run build
@@ -28,16 +42,15 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: build
-        path: ./dist # o la carpeta de salida de tu build
+        path: ./dist
 
     - name: 📤 Crear Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
-        files: ./dist/** # o tus binarios/resultados
+        files: ./dist/**
 
-    # Despliegue (opcional)
     - name: 🚀 Desplegar en GitHub Pages
       if: github.ref_type == 'tag'
       uses: peaceiris/actions-gh-pages@v4
