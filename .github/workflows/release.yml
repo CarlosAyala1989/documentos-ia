@@ -22,9 +22,9 @@ jobs:
         run: npm ci
 
       - name: 📤 Crear Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
-          github_token: ${{ secrets.github_token}}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: "Release automático para backend de Node.js"
