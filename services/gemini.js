@@ -59,7 +59,8 @@ class GeminiService {
             try {
                 console.log(`🔍 Analizando código con Gemini (intento ${intentos + 1}/${maxIntentos})`);
                 
-                const model = this.ai.getGenerativeModel({ model: "gemini-pro" });
+                // Cambiar de 'gemini-pro' a 'gemini-1.5-flash'
+                const model = this.ai.getGenerativeModel({ model: "gemini-1.5-flash" });
                 const response = await model.generateContent(prompt);
                 
                 const analisis = response.response.text();
@@ -248,7 +249,8 @@ Genera el documento en formato markdown, bien estructurado y profesional.
         
         while (intentos < maxIntentos) {
             try {
-                const model = this.ai.getGenerativeModel({ model: "gemini-pro" });
+                // Cambiar de 'gemini-pro' a 'gemini-1.5-flash'
+                const model = this.ai.getGenerativeModel({ model: "gemini-1.5-flash" });
                 const response = await model.generateContent(prompt);
                 
                 return {
