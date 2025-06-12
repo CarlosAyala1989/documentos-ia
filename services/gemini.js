@@ -439,6 +439,196 @@ Devuelve un análisis estructurado que incluya:
 
         return await this.procesarConGemini(prompt);
     }
+
+    // Función para limpiar el código PlantUML eliminando marcadores
+    limpiarCodigoPlantUML(codigoRaw) {
+        if (!codigoRaw || typeof codigoRaw !== 'string') {
+            return codigoRaw;
+        }
+        
+        let lineas = codigoRaw.split('\n');
+        
+        // Eliminar primera línea si contiene ```plantuml
+        if (lineas.length > 0 && lineas[0].trim().includes('```plantuml')) {
+            lineas.shift();
+        }
+        
+        // Eliminar última línea si contiene ```
+        if (lineas.length > 0 && lineas[lineas.length - 1].trim() === '```') {
+            lineas.pop();
+        }
+        
+        let codigoCompleto = lineas.join('\n').trim();
+        
+        // Encontrar las posiciones de @startuml y @enduml
+        const inicioIndex = codigoCompleto.indexOf('@startuml');
+        const finIndex = codigoCompleto.indexOf('@enduml');
+        
+        // Si no se encuentran las etiquetas, devolver el código original
+        if (inicioIndex === -1 || finIndex === -1 || finIndex <= inicioIndex) {
+            // Si no hay etiquetas válidas, crear un código PlantUML básico
+            return '@startuml\n' + codigoCompleto + '\n@enduml';
+        }
+        
+        // Extraer solo el contenido entre @startuml y @enduml (incluyendo las etiquetas)
+        const codigoLimpio = codigoCompleto.substring(inicioIndex, finIndex + '@enduml'.length);
+        
+        return codigoLimpio.trim();
+    }
+
+    async validarPlantUML(codigoPlantUML, tipoDiagrama) {
+        const prompt = `
+Como experto en PlantUML, valida y corrige el siguiente código PlantUML para un diagrama de ${tipoDiagrama}:
+
+${codigoPlantUML}
+
+**INSTRUCCIONES:**
+1. Verifica que la sintaxis PlantUML sea correcta
+2. Asegúrate de que tenga @startuml y @enduml
+3. Corrige cualquier error de sintaxis
+4. Verifica que las relaciones estén bien definidas
+5. Asegúrate de que el código sea válido y funcional
+
+**FORMATO DE RESPUESTA:**
+Devuelve únicamente el código PlantUML corregido, sin explicaciones adicionales:
+
+\`\`\`plantuml
+@startuml
+[código PlantUML corregido aquí]
+@enduml
+\`\`\`
+        `;
+
+        return await this.procesarConGemini(prompt);
+    }
+
+    async optimizarPlantUML(codigoPlantUML, tipoDiagrama) {
+        const prompt = `
+Como experto en PlantUML, optimiza el siguiente código para crear un diagrama de ${tipoDiagrama} simple y claro:
+
+${codigoPlantUML}
+
+**INSTRUCCIONES:**
+1. Mantén el código PlantUML simple y básico
+2. NO agregues colores, estilos ni elementos visuales especiales
+3. Enfócate únicamente en la estructura y relaciones del código
+4. Optimiza solo la organización y claridad de las relaciones
+5. Usa la sintaxis PlantUML estándar sin decoraciones
+6. Mantén toda la funcionalidad original
+
+**FORMATO DE RESPUESTA:**
+Devuelve únicamente el código PlantUML optimizado y sin que agregues cosas como !include, solamente el codigo:
+
+\`\`\`plantuml
+@startuml
+[código PlantUML optimizado aquí]
+@enduml
+\`\`\`
+        `;
+
+        return await this.procesarConGemini(prompt);
+    }
+
+    async generarPlantUMLValidado(analisisProyecto, tipoDiagrama = 'clases') {
+        console.log('🔄 Iniciando generación de PlantUML con validación múltiple...');
+        
+        try {
+            // Primera API: Generación inicial del código PlantUML
+            console.log('🎨 Paso 1: Generando código PlantUML inicial...');
+            const generacionInicial = await this.generarDiagramasUML(analisisProyecto, tipoDiagrama);
+            
+            if (!generacionInicial.success) {
+                throw new Error('Error en generación inicial: ' + generacionInicial.error);
+            }
+
+            // Limpiar código inicial
+            const codigoInicialLimpio = this.limpiarCodigoPlantUML(generacionInicial.contenido);
+
+            // Segunda API: Validación y corrección del código PlantUML
+            console.log('✅ Paso 2: Validando y corrigiendo código PlantUML...');
+            const validacion = await this.validarPlantUML(codigoInicialLimpio, tipoDiagrama);
+            
+            if (!validacion.success) {
+                console.warn('⚠️ Error en validación, usando código original');
+            }
+
+            // Limpiar código validado
+            const codigoValidadoLimpio = validacion.success ? 
+                this.limpiarCodigoPlantUML(validacion.contenido) : codigoInicialLimpio;
+
+            // Tercera API: Optimización del código PlantUML
+            console.log('🚀 Paso 3: Optimizando código PlantUML...');
+            const optimizacion = await this.optimizarPlantUML(codigoValidadoLimpio, tipoDiagrama);
+            
+            // Limpiar código final
+            const codigoFinalLimpio = optimizacion.success ? 
+                this.limpiarCodigoPlantUML(optimizacion.contenido) : codigoValidadoLimpio;
+
+            console.log('✅ Generación de PlantUML completada exitosamente');
+            
+            return {
+                success: true,
+                codigo_plantuml: codigoFinalLimpio,
+                validado: validacion.success,
+                optimizado: optimizacion.success,
+                api_keys_usadas: [
+                    generacionInicial.api_key_usada,
+                    validacion.api_key_usada,
+                    optimizacion.api_key_usada
+                ].filter(Boolean)
+            };
+            
+        } catch (error) {
+            console.error('❌ Error en generación validada:', error);
+            return {
+                success: false,
+                error: error.message,
+                codigo_plantuml: null
+            };
+        }
+    }
+
+    async generarImagenPlantUML(codigoPlantUML) {
+        try {
+            // Limpiar el código antes de generar la imagen
+            const codigoLimpio = this.limpiarCodigoPlantUML(codigoPlantUML);
+            
+            // Codificar el código PlantUML para URL
+            const codigoCodificado = this.encodePlantUML(codigoLimpio);
+            
+            // URLs para diferentes formatos con el prefijo correcto
+            const baseUrl = 'https://www.plantuml.com/plantuml';
+            
+            return {
+                success: true,
+                urls: {
+                    png: `${baseUrl}/png/~1${codigoCodificado}`,
+                    svg: `${baseUrl}/svg/~1${codigoCodificado}`,
+                    pdf: `${baseUrl}/pdf/~1${codigoCodificado}`
+                },
+                codigo_original: codigoLimpio
+            };
+            
+        } catch (error) {
+            console.error('❌ Error al generar imagen PlantUML:', error);
+            return {
+                success: false,
+                error: error.message,
+                urls: null
+            };
+        }
+    }
+
+    // Función auxiliar: Codificar PlantUML para URL
+    encodePlantUML(plantumlCode) {
+        // Usar encodeURIComponent para una codificación simple y confiable
+        return encodeURIComponent(plantumlCode)
+            .replace(/%20/g, " ")
+            .replace(/%3C/g, "<")
+            .replace(/%3E/g, ">")
+            .replace(/%23/g, "#")
+            .replace(/%40/g, "@");
+    }
 }
 
 module.exports = new GeminiService();

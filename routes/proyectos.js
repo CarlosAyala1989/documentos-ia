@@ -367,8 +367,8 @@ router.post('/generar-diagramas-uml', requireAuth, upload.array('archivos', 50),
         // Crear análisis del proyecto
         const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
         
-        // Generar diagramas UML
-        const resultado = await geminiService.generarDiagramasUML(
+        // Generar diagramas UML con validación múltiple
+        const resultado = await geminiService.generarPlantUMLValidado(
             analisisProyecto,
             tipo_diagrama || 'clases'
         );
@@ -380,15 +380,21 @@ router.post('/generar-diagramas-uml', requireAuth, upload.array('archivos', 50),
                 detalle: resultado.error 
             });
         }
+
+        // Generar URLs de imágenes
+        const imagenes = await geminiService.generarImagenPlantUML(resultado.codigo_plantuml);
         
         console.log('✅ Diagramas UML generados exitosamente');
         
         res.status(200).json({
             success: true,
-            codigo_plantuml: resultado.contenido,
+            codigo_plantuml: resultado.codigo_plantuml,
+            imagenes_urls: imagenes.success ? imagenes.urls : null,
+            validado: resultado.validado,
+            optimizado: resultado.optimizado,
             tipo_diagrama: tipo_diagrama || 'clases',
             archivos_procesados: todosLosArchivos.length,
-            api_key_usada: resultado.api_key_usada
+            api_keys_usadas: resultado.api_keys_usadas
         });
         
     } catch (error) {

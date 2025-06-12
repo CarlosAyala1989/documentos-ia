@@ -882,7 +882,9 @@ function mostrarDiagramasUML(data) {
                         <ul class="list-unstyled">
                             <li><strong>Tipo:</strong> ${data.tipo_diagrama}</li>
                             <li><strong>Archivos procesados:</strong> ${data.archivos_procesados}</li>
-                            <li><strong>API utilizada:</strong> ${data.api_key_usada}</li>
+                            <li><strong>APIs utilizadas:</strong> ${data.api_keys_usadas ? data.api_keys_usadas.length : 1}</li>
+                            ${data.validado ? '<li><span class="badge bg-success">✅ Validado</span></li>' : ''}
+                            ${data.optimizado ? '<li><span class="badge bg-info">🚀 Optimizado</span></li>' : ''}
                         </ul>
                     </div>
                     <div class="col-md-6">
@@ -896,12 +898,36 @@ function mostrarDiagramasUML(data) {
                     </div>
                 </div>
                 
+                ${data.imagenes_urls ? `
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-3">🖼️ Vista Previa del Diagrama:</h5>
+                        <div class="text-center p-3 bg-light border rounded">
+                            <img src="${data.imagenes_urls.png}" alt="Diagrama UML" class="img-fluid" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;">
+                        </div>
+                        <div class="mt-3 text-center">
+                            <h6 class="fw-bold">Descargar en diferentes formatos:</h6>
+                            <a href="${data.imagenes_urls.png}" target="_blank" class="btn btn-success btn-sm me-2">
+                                <i class="fas fa-image me-1"></i>PNG
+                            </a>
+                            <a href="${data.imagenes_urls.svg}" target="_blank" class="btn btn-primary btn-sm me-2">
+                                <i class="fas fa-vector-square me-1"></i>SVG
+                            </a>
+                            <a href="${data.imagenes_urls.pdf}" target="_blank" class="btn btn-danger btn-sm">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                
                 <div class="row">
                     <div class="col-12">
-                        <h5 class="fw-bold mb-3">Código PlantUML:</h5>
+                        <h5 class="fw-bold mb-3">📝 Código PlantUML:</h5>
                         <div class="plantuml-contenido p-3 bg-dark text-light border rounded">
                             <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">${data.codigo_plantuml}</pre>
                         </div>
+                        ${!data.imagenes_urls ? `
                         <div class="mt-3 p-3 bg-info bg-opacity-10 border border-info rounded">
                             <h6 class="fw-bold text-info">💡 Cómo usar este código:</h6>
                             <ol class="mb-0">
@@ -911,6 +937,7 @@ function mostrarDiagramasUML(data) {
                                 <li>Descarga tu diagrama en PNG, SVG o PDF</li>
                             </ol>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>
