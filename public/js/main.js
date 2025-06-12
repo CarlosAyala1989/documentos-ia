@@ -7,6 +7,8 @@ const generateBtn = document.getElementById('generateBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resultados = document.getElementById('resultados');
 
+// Array para almacenar múltiples archivos
+let selectedFiles = [];
 let uploadedFile = null;
 
 // Eventos de drag and drop
@@ -22,65 +24,126 @@ uploadZone.addEventListener('dragleave', () => {
 uploadZone.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadZone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
+    const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-        handleFile(files[0]); // Solo tomar el primer archivo
+        handleMultipleFiles(files);
     }
 });
 
+// Manejar selección de múltiples archivos
 fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFile(e.target.files[0]);
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        handleMultipleFiles(files);
     }
 });
 
-function handleFile(file) {
-    // Verificar que sea un archivo de código
-    const extension = file.name.split('.').pop().toLowerCase();
-    const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql'];
+// Función para manejar múltiples archivos
+function handleMultipleFiles(files) {
+    // Agregar archivos a la lista existente
+    files.forEach(file => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql', 'zip', 'txt', 'md'];
+        
+        // Quitar la alerta para ZIP - ahora es soportado
+        if (extensionesSoportadas.includes(extension) || file.type === 'application/zip') {
+            // Verificar si el archivo ya está en la lista
+            const existeArchivo = selectedFiles.some(existingFile => 
+                existingFile.name === file.name && existingFile.size === file.size
+            );
+            
+            if (!existeArchivo) {
+                selectedFiles.push(file);
+            }
+        }
+    });
     
-    if (!extensionesSoportadas.includes(extension)) {
-        alert('Tipo de archivo no soportado. Por favor sube un archivo de código válido.');
+    mostrarArchivosSeleccionados();
+}
+
+// Función para un solo archivo (compatibilidad hacia atrás)
+function handleFile(file) {
+    handleMultipleFiles([file]);
+}
+
+// Mostrar todos los archivos seleccionados
+function mostrarArchivosSeleccionados() {
+    if (selectedFiles.length === 0) {
+        uploadedFiles.style.display = 'none';
         return;
     }
     
-    // Leer el contenido del archivo
+    filesList.innerHTML = '';
+    
+    selectedFiles.forEach((file, index) => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-info mb-2';
+        fileItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-file-code me-2 text-primary"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
+                    <span class="badge bg-success ms-2">${extension.toUpperCase()}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarArchivo(${index})" title="Eliminar archivo">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        filesList.appendChild(fileItem);
+    });
+    
+    uploadedFiles.style.display = 'block';
+}
+
+// Eliminar archivo específico
+function eliminarArchivo(index) {
+    selectedFiles.splice(index, 1);
+    mostrarArchivosSeleccionados();
+}
+
+// Limpiar todos los archivos
+function limpiarArchivos() {
+    selectedFiles = [];
+    uploadedFile = null;
+    mostrarArchivosSeleccionados();
+    fileInput.value = '';
+}
+
+// Analizar archivo con IA (modificado para soportar múltiples archivos)
+generateBtn.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) {
+        alert('Por favor, sube al menos un archivo');
+        return;
+    }
+    
+    // Si hay múltiples archivos, usar análisis de proyecto
+    if (selectedFiles.length > 1) {
+        await analizarProyecto();
+        return;
+    }
+    
+    // Si hay un solo archivo, usar análisis individual
+    const file = selectedFiles[0];
     const reader = new FileReader();
-    reader.onload = function(e) {
+    
+    reader.onload = async function(e) {
         uploadedFile = {
             name: file.name,
             content: e.target.result,
-            extension: extension
+            extension: file.name.split('.').pop().toLowerCase()
         };
         
-        // Mostrar información del archivo
-        filesList.innerHTML = `
-            <div class="file-info">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="fas fa-file-code me-2 text-primary"></i>
-                        <strong>${file.name}</strong>
-                        <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
-                        <span class="badge bg-success ms-2">${extension.toUpperCase()}</span>
-                    </div>
-                    <i class="fas fa-check-circle text-success"></i>
-                </div>
-            </div>
-        `;
-        
-        uploadedFiles.style.display = 'block';
+        await analizarArchivoIndividual();
     };
     
     reader.readAsText(file);
-}
+});
 
-// Analizar archivo con IA
-generateBtn.addEventListener('click', async () => {
-    if (!uploadedFile) {
-        alert('Por favor, sube un archivo primero');
-        return;
-    }
-    
+// Función para analizar archivo individual
+async function analizarArchivoIndividual() {
     // Ocultar sección de archivos y mostrar loading
     uploadedFiles.style.display = 'none';
     loadingSpinner.style.display = 'block';
@@ -119,9 +182,43 @@ generateBtn.addEventListener('click', async () => {
         loadingSpinner.style.display = 'none';
         uploadedFiles.style.display = 'block';
     }
-});
+}
 
-// Mostrar el análisis de la IA
+// Analizar proyecto completo
+async function analizarProyecto() {
+    uploadedFiles.style.display = 'none';
+    loadingSpinner.style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        
+        // Agregar todos los archivos al FormData
+        selectedFiles.forEach((file) => {
+            formData.append('archivos', file);
+        });
+        
+        const response = await fetch('/api/proyectos/analizar-proyecto', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarDocumentacionSRS(data);
+        } else {
+            throw new Error(data.error || 'Error al analizar el proyecto');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        loadingSpinner.style.display = 'none';
+        uploadedFiles.style.display = 'block';
+        alert('Error al analizar el proyecto: ' + error.message);
+    }
+}
+
+// Mostrar el análisis de la IA (con botón de descarga PDF)
 function mostrarAnalisis(data) {
     loadingSpinner.style.display = 'none';
     
@@ -153,7 +250,10 @@ function mostrarAnalisis(data) {
                         <p><i class="fas fa-brain text-success me-2"></i>Gemini AI (API Key ${data.api_key_usada})</p>
                         
                         <button class="btn btn-success btn-sm me-2" onclick="descargarAnalisis()">
-                            <i class="fas fa-download me-1"></i>Descargar Análisis
+                            <i class="fas fa-download me-1"></i>Descargar TXT
+                        </button>
+                        <button class="btn btn-danger btn-sm me-2" onclick="descargarAnalisisPDF()">
+                            <i class="fas fa-file-pdf me-1"></i>Descargar PDF
                         </button>
                         <button class="btn btn-outline-primary btn-sm" onclick="analizarOtroArchivo()">
                             <i class="fas fa-upload me-1"></i>Analizar Otro
@@ -176,7 +276,59 @@ function mostrarAnalisis(data) {
     window.currentAnalysis = data;
 }
 
-// Función para descargar el análisis
+// Mostrar documentación SRS generada (con botón de descarga PDF)
+function mostrarDocumentacionSRS(data) {
+    loadingSpinner.style.display = 'none';
+    
+    resultados.innerHTML = `
+        <div class="container">
+            <h2 class="text-center mb-5 fw-bold">Documentación SRS Generada</h2>
+            
+            <div class="result-section">
+                <h4 class="fw-bold mb-3">
+                    <i class="fas fa-file-alt text-primary me-2"></i>
+                    Especificación de Requisitos de Software
+                </h4>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Información del Proyecto:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Archivos analizados:</strong> ${data.archivos_procesados}</li>
+                            <li><strong>Lenguajes detectados:</strong> ${data.lenguajes_detectados.join(', ')}</li>
+                            <li><strong>Total de líneas:</strong> ${data.estadisticas_totales.total_lineas}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Acciones:</h6>
+                        <button class="btn btn-success btn-sm me-2" onclick="descargarSRS()">
+                            <i class="fas fa-download me-1"></i>Descargar MD
+                        </button>
+                        <button class="btn btn-danger btn-sm me-2" onclick="descargarSRSPDF()">
+                            <i class="fas fa-file-pdf me-1"></i>Descargar PDF
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="analizarOtroProyecto()">
+                            <i class="fas fa-upload me-1"></i>Analizar Otro Proyecto
+                        </button>
+                    </div>
+                </div>
+                
+                <h5 class="fw-bold mb-3">Documento SRS:</h5>
+                <div class="srs-contenido p-3 bg-light border rounded">
+                    <div style="white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; margin: 0;">${data.documentacion_srs}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    resultados.style.display = 'block';
+    resultados.scrollIntoView({ behavior: 'smooth' });
+    
+    // Guardar datos para descarga
+    window.currentSRS = data;
+}
+
+// Función para descargar el análisis en TXT
 function descargarAnalisis() {
     if (!window.currentAnalysis) {
         alert('No hay análisis disponible para descargar');
@@ -214,21 +366,171 @@ Generado con Gemini AI el ${new Date().toLocaleString()}
     URL.revokeObjectURL(url);
 }
 
+// Nueva función para descargar análisis en PDF
+function descargarAnalisisPDF() {
+    if (!window.currentAnalysis) {
+        alert('No hay análisis disponible para descargar');
+        return;
+    }
+    
+    const data = window.currentAnalysis;
+    
+    // Crear contenido HTML para el PDF
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Análisis de Código - ${data.archivo}</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .info-section { background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; }
+            .analysis-section { margin: 20px 0; }
+            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #666; }
+            pre { white-space: pre-wrap; background: #f8f8f8; padding: 15px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Análisis de Código</h1>
+            <h2>${data.archivo}</h2>
+        </div>
+        
+        <div class="info-section">
+            <h3>Información del Archivo</h3>
+            <p><strong>Nombre:</strong> ${data.archivo}</p>
+            <p><strong>Lenguaje:</strong> ${data.lenguaje_detectado}</p>
+            <p><strong>Líneas totales:</strong> ${data.estadisticas.total_lineas}</p>
+            <p><strong>Líneas de código:</strong> ${data.estadisticas.lineas_codigo}</p>
+            <p><strong>Comentarios:</strong> ${data.estadisticas.lineas_comentarios}</p>
+            <p><strong>Caracteres:</strong> ${data.estadisticas.caracteres}</p>
+        </div>
+        
+        <div class="analysis-section">
+            <h3>Análisis Detallado</h3>
+            <pre>${data.analisis}</pre>
+        </div>
+        
+        <div class="footer">
+            <p>Generado con Gemini AI el ${new Date().toLocaleString()}</p>
+        </div>
+    </body>
+    </html>
+    `;
+    
+    // Crear ventana para imprimir
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Esperar a que se cargue y luego imprimir
+    printWindow.onload = function() {
+        printWindow.print();
+    };
+}
+
+// Nueva función para descargar SRS en PDF
+function descargarSRSPDF() {
+    if (!window.currentSRS) {
+        alert('No hay documentación SRS disponible para descargar');
+        return;
+    }
+    
+    const data = window.currentSRS;
+    
+    // Crear contenido HTML para el PDF
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Documentación SRS</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+            .info-section { background: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0; }
+            .srs-section { margin: 20px 0; }
+            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #666; }
+            pre { white-space: pre-wrap; background: #f8f8f8; padding: 15px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Especificación de Requisitos de Software</h1>
+            <h2>Documentación SRS</h2>
+        </div>
+        
+        <div class="info-section">
+            <h3>Información del Proyecto</h3>
+            <p><strong>Archivos analizados:</strong> ${data.archivos_procesados}</p>
+            <p><strong>Lenguajes detectados:</strong> ${data.lenguajes_detectados.join(', ')}</p>
+            <p><strong>Total de líneas:</strong> ${data.estadisticas_totales.total_lineas}</p>
+        </div>
+        
+        <div class="srs-section">
+            <h3>Documento SRS</h3>
+            <pre>${data.documentacion_srs}</pre>
+        </div>
+        
+        <div class="footer">
+            <p>Generado con Gemini AI el ${new Date().toLocaleString()}</p>
+        </div>
+    </body>
+    </html>
+    `;
+    
+    // Crear ventana para imprimir
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Esperar a que se cargue y luego imprimir
+    printWindow.onload = function() {
+        printWindow.print();
+    };
+}
+
+// Función para descargar SRS en Markdown
+function descargarSRS() {
+    if (!window.currentSRS) {
+        alert('No hay documentación SRS disponible para descargar');
+        return;
+    }
+    
+    const data = window.currentSRS;
+    const contenido = data.documentacion_srs;
+    
+    const blob = new Blob([contenido], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SRS-${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 // Función para analizar otro archivo
 function analizarOtroArchivo() {
     // Limpiar variables
-    uploadedFile = null;
+    limpiarArchivos();
     window.currentAnalysis = null;
     
     // Ocultar resultados
     resultados.style.display = 'none';
     
-    // Limpiar y mostrar zona de subida
-    filesList.innerHTML = '';
-    uploadedFiles.style.display = 'none';
-    fileInput.value = '';
-    
     // Scroll a la zona de subida
+    uploadZone.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Función para analizar otro proyecto
+function analizarOtroProyecto() {
+    limpiarArchivos();
+    window.currentSRS = null;
+    resultados.style.display = 'none';
     uploadZone.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -275,174 +577,3 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     setupLogout();
 });
-
-// Agregar al final del archivo main.js
-
-let selectedFiles = [];
-
-// Manejar selección de múltiples archivos
-document.getElementById('fileInput').addEventListener('change', function(e) {
-    const files = Array.from(e.target.files);
-    selectedFiles = files;
-    mostrarArchivosSeleccionados(files);
-});
-
-// Mostrar archivos seleccionados
-function mostrarArchivosSeleccionados(files) {
-    const filesList = document.getElementById('filesList');
-    const selectedFilesDiv = document.getElementById('selectedFiles');
-    
-    filesList.innerHTML = '';
-    
-    files.forEach((file, index) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-        fileItem.innerHTML = `
-            <div>
-                <i class="fas fa-file-code me-2"></i>
-                <strong>${file.name}</strong>
-                <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
-            </div>
-            <button class="btn btn-sm btn-outline-danger" onclick="eliminarArchivo(${index})">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        filesList.appendChild(fileItem);
-    });
-    
-    selectedFilesDiv.style.display = files.length > 0 ? 'block' : 'none';
-}
-
-// Eliminar archivo específico
-function eliminarArchivo(index) {
-    selectedFiles.splice(index, 1);
-    mostrarArchivosSeleccionados(selectedFiles);
-}
-
-// Limpiar todos los archivos
-function limpiarArchivos() {
-    selectedFiles = [];
-    document.getElementById('selectedFiles').style.display = 'none';
-    document.getElementById('fileInput').value = '';
-}
-
-// Analizar proyecto completo
-async function analizarProyecto() {
-    if (selectedFiles.length === 0) {
-        alert('Por favor selecciona al menos un archivo');
-        return;
-    }
-    
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const resultados = document.getElementById('resultados');
-    
-    loadingSpinner.style.display = 'block';
-    resultados.style.display = 'none';
-    
-    try {
-        const formData = new FormData();
-        
-        // Agregar todos los archivos al FormData
-        selectedFiles.forEach((file, index) => {
-            formData.append('archivos', file);
-        });
-        
-        const response = await fetch('/api/proyectos/analizar-proyecto', {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            mostrarDocumentacionSRS(data);
-        } else {
-            throw new Error(data.error || 'Error al analizar el proyecto');
-        }
-        
-    } catch (error) {
-        console.error('Error:', error);
-        loadingSpinner.style.display = 'none';
-        alert('Error al analizar el proyecto: ' + error.message);
-    }
-}
-
-// Mostrar documentación SRS generada
-function mostrarDocumentacionSRS(data) {
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const resultados = document.getElementById('resultados');
-    
-    loadingSpinner.style.display = 'none';
-    
-    resultados.innerHTML = `
-        <div class="container">
-            <h2 class="text-center mb-5 fw-bold">Documentación SRS Generada</h2>
-            
-            <div class="result-section">
-                <h4 class="fw-bold mb-3">
-                    <i class="fas fa-file-alt text-primary me-2"></i>
-                    Especificación de Requisitos de Software
-                </h4>
-                
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h6 class="fw-bold">Información del Proyecto:</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Archivos analizados:</strong> ${data.archivos_procesados}</li>
-                            <li><strong>Lenguajes detectados:</strong> ${data.lenguajes_detectados.join(', ')}</li>
-                            <li><strong>Total de líneas:</strong> ${data.estadisticas_totales.total_lineas}</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="fw-bold">Acciones:</h6>
-                        <button class="btn btn-success btn-sm me-2" onclick="descargarSRS()">
-                            <i class="fas fa-download me-1"></i>Descargar SRS
-                        </button>
-                        <button class="btn btn-outline-primary btn-sm" onclick="analizarOtroProyecto()">
-                            <i class="fas fa-upload me-1"></i>Analizar Otro Proyecto
-                        </button>
-                    </div>
-                </div>
-                
-                <h5 class="fw-bold mb-3">Documento SRS:</h5>
-                <div class="srs-contenido p-3 bg-light border rounded">
-                    <div style="white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; margin: 0;">${data.documentacion_srs}</div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    resultados.style.display = 'block';
-    resultados.scrollIntoView({ behavior: 'smooth' });
-    
-    // Guardar datos para descarga
-    window.currentSRS = data;
-}
-
-// Funciones auxiliares
-function descargarSRS() {
-    if (!window.currentSRS) {
-        alert('No hay documentación SRS disponible para descargar');
-        return;
-    }
-    
-    const data = window.currentSRS;
-    const contenido = data.documentacion_srs;
-    
-    const blob = new Blob([contenido], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SRS-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-function analizarOtroProyecto() {
-    limpiarArchivos();
-    document.getElementById('resultados').style.display = 'none';
-    document.getElementById('uploadSection').scrollIntoView({ behavior: 'smooth' });
-}
