@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const geminiService = require('../services/gemini');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const AdmZip = require('adm-zip');
+const pdfParse = require('pdf-parse');
 
 // Middleware para verificar autenticación
 const requireAuth = (req, res, next) => {
@@ -61,13 +66,6 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
     });
   }
 });
-
-// Agregar al final del archivo, antes de module.exports
-
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const AdmZip = require('adm-zip');
 
 // Configurar multer para manejar archivos
 const storage = multer.memoryStorage();
@@ -208,3 +206,196 @@ function calcularEstadisticasProyecto(archivos) {
 }
 
 module.exports = router;
+
+// Nueva ruta: Completar documento personalizado con IA
+router.post('/completar-documento-personalizado', requireAuth, upload.fields([
+    { name: 'documento_pdf', maxCount: 1 },
+    { name: 'archivos_codigo', maxCount: 50 }
+]), async (req, res) => {
+    try {
+        const documentoPDF = req.files['documento_pdf'] ? req.files['documento_pdf'][0] : null;
+        const archivosCodigo = req.files['archivos_codigo'] || [];
+        const { tipo_documento } = req.body;
+        
+        if (!documentoPDF) {
+            return res.status(400).json({ 
+                error: 'Se requiere un documento PDF personalizado' 
+            });
+        }
+        
+        if (archivosCodigo.length === 0) {
+            return res.status(400).json({ 
+                error: 'Se requieren archivos de código para el análisis' 
+            });
+        }
+        
+        console.log(`📄 Usuario ${req.session.user.email} completando documento personalizado: ${documentoPDF.originalname}`);
+        
+        // Extraer texto del PDF
+        console.log('📖 Extrayendo texto del PDF...');
+        const pdfData = await pdfParse(documentoPDF.buffer);
+        const contenidoPDF = pdfData.text;
+        
+        if (!contenidoPDF || contenidoPDF.trim().length === 0) {
+            return res.status(400).json({ 
+                error: 'No se pudo extraer texto del PDF. Asegúrate de que no sea una imagen escaneada.' 
+            });
+        }
+        
+        // Procesar archivos de código
+        console.log('💻 Procesando archivos de código...');
+        let todosLosArchivos = [];
+        
+        for (const archivo of archivosCodigo) {
+            if (archivo.mimetype === 'application/zip' || archivo.originalname.endsWith('.zip')) {
+                // Extraer archivos del ZIP
+                const zip = new AdmZip(archivo.buffer);
+                const zipEntries = zip.getEntries();
+                
+                zipEntries.forEach(entry => {
+                    if (!entry.isDirectory && esArchivoValido(entry.entryName)) {
+                        todosLosArchivos.push({
+                            nombre: entry.entryName,
+                            contenido: entry.getData().toString('utf8'),
+                            extension: path.extname(entry.entryName)
+                        });
+                    }
+                });
+            } else if (esArchivoValido(archivo.originalname)) {
+                todosLosArchivos.push({
+                    nombre: archivo.originalname,
+                    contenido: archivo.buffer.toString('utf8'),
+                    extension: path.extname(archivo.originalname)
+                });
+            }
+        }
+        
+        if (todosLosArchivos.length === 0) {
+            return res.status(400).json({ 
+                error: 'No se encontraron archivos de código válidos' 
+            });
+        }
+        
+        // Crear análisis del proyecto
+        const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
+        
+        // Completar documento con análisis avanzado usando múltiples APIs
+        console.log('🤖 Iniciando análisis avanzado con múltiples APIs de Gemini...');
+        const resultado = await geminiService.analisisAvanzadoConMultiplesAPIs(
+            contenidoPDF,
+            analisisProyecto,
+            tipo_documento || 'SRS'
+        );
+        
+        if (!resultado.success) {
+            console.error('❌ Error en análisis avanzado:', resultado.error);
+            return res.status(500).json({ 
+                error: 'Error al completar el documento personalizado',
+                detalle: resultado.error 
+            });
+        }
+        
+        console.log('✅ Documento personalizado completado exitosamente');
+        
+        // Responder con el documento completado
+        res.status(200).json({
+            success: true,
+            documento_original: contenidoPDF.substring(0, 1000) + '...', // Muestra solo los primeros 1000 caracteres
+            documento_completado: resultado.documento_completado,
+            diagramas_uml: resultado.diagramas_uml,
+            analisis_estructura: resultado.analisis_estructura,
+            archivos_procesados: todosLosArchivos.length,
+            tipo_documento: tipo_documento || 'SRS',
+            api_keys_usadas: resultado.api_keys_usadas
+        });
+        
+    } catch (error) {
+        console.error('❌ Error general al completar documento personalizado:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor al completar documento',
+            detalle: error.message 
+        });
+    }
+});
+
+// Nueva ruta: Generar solo diagramas UML
+router.post('/generar-diagramas-uml', requireAuth, upload.array('archivos', 50), async (req, res) => {
+    try {
+        const archivos = req.files;
+        const { tipo_diagrama } = req.body;
+        
+        if (!archivos || archivos.length === 0) {
+            return res.status(400).json({ 
+                error: 'Se requieren archivos de código para generar diagramas' 
+            });
+        }
+        
+        console.log(`🎨 Usuario ${req.session.user.email} generando diagramas UML: ${tipo_diagrama}`);
+        
+        // Procesar archivos (similar al código existente)
+        let todosLosArchivos = [];
+        
+        for (const archivo of archivos) {
+            if (archivo.mimetype === 'application/zip' || archivo.originalname.endsWith('.zip')) {
+                const zip = new AdmZip(archivo.buffer);
+                const zipEntries = zip.getEntries();
+                
+                zipEntries.forEach(entry => {
+                    if (!entry.isDirectory && esArchivoValido(entry.entryName)) {
+                        todosLosArchivos.push({
+                            nombre: entry.entryName,
+                            contenido: entry.getData().toString('utf8'),
+                            extension: path.extname(entry.entryName)
+                        });
+                    }
+                });
+            } else if (esArchivoValido(archivo.originalname)) {
+                todosLosArchivos.push({
+                    nombre: archivo.originalname,
+                    contenido: archivo.buffer.toString('utf8'),
+                    extension: path.extname(archivo.originalname)
+                });
+            }
+        }
+        
+        if (todosLosArchivos.length === 0) {
+            return res.status(400).json({ 
+                error: 'No se encontraron archivos válidos para analizar' 
+            });
+        }
+        
+        // Crear análisis del proyecto
+        const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
+        
+        // Generar diagramas UML
+        const resultado = await geminiService.generarDiagramasUML(
+            analisisProyecto,
+            tipo_diagrama || 'clases'
+        );
+        
+        if (!resultado.success) {
+            console.error('❌ Error al generar diagramas UML:', resultado.error);
+            return res.status(500).json({ 
+                error: 'Error al generar diagramas UML',
+                detalle: resultado.error 
+            });
+        }
+        
+        console.log('✅ Diagramas UML generados exitosamente');
+        
+        res.status(200).json({
+            success: true,
+            codigo_plantuml: resultado.contenido,
+            tipo_diagrama: tipo_diagrama || 'clases',
+            archivos_procesados: todosLosArchivos.length,
+            api_key_usada: resultado.api_key_usada
+        });
+        
+    } catch (error) {
+        console.error('❌ Error general al generar diagramas UML:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor al generar diagramas',
+            detalle: error.message 
+        });
+    }
+});

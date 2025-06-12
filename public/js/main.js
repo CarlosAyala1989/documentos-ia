@@ -43,10 +43,13 @@ function handleMultipleFiles(files) {
     // Agregar archivos a la lista existente
     files.forEach(file => {
         const extension = file.name.split('.').pop().toLowerCase();
-        const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql', 'zip', 'txt', 'md'];
+        const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql', 'zip', 'rar', 'txt', 'md'];
         
-        // Quitar la alerta para ZIP - ahora es soportado
-        if (extensionesSoportadas.includes(extension) || file.type === 'application/zip') {
+        // Soportar ZIP y RAR
+        if (extensionesSoportadas.includes(extension) || 
+            file.type === 'application/zip' || 
+            file.type === 'application/x-rar-compressed' ||
+            file.type === 'application/vnd.rar') {
             // Verificar si el archivo ya está en la lista
             const existeArchivo = selectedFiles.some(existingFile => 
                 existingFile.name === file.name && existingFile.size === file.size
@@ -577,3 +580,426 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     setupLogout();
 });
+
+
+// Variables para documento personalizado
+let selectedPDF = null;
+let selectedCodeFiles = [];
+
+// Referencias a elementos del DOM para documento personalizado
+const pdfInput = document.getElementById('pdfInput');
+const codeInput = document.getElementById('codeInput');
+const pdfSelected = document.getElementById('pdfSelected');
+const codeFilesSelected = document.getElementById('codeFilesSelected');
+const codeFilesList = document.getElementById('codeFilesList');
+const completarDocumentoBtn = document.getElementById('completarDocumentoBtn');
+const generarDiagramasBtn = document.getElementById('generarDiagramasBtn');
+const resultadosDocumento = document.getElementById('resultadosDocumento');
+
+// Eventos para documento personalizado
+if (pdfInput) {
+    pdfInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            selectedPDF = file;
+            mostrarPDFSeleccionado();
+            verificarArchivosCompletos();
+        } else {
+            alert('Por favor, selecciona un archivo PDF válido');
+        }
+    });
+}
+
+if (codeInput) {
+    codeInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        selectedCodeFiles = files;
+        mostrarArchivosCodigoSeleccionados();
+        verificarArchivosCompletos();
+    });
+}
+
+if (completarDocumentoBtn) {
+    completarDocumentoBtn.addEventListener('click', completarDocumentoPersonalizado);
+}
+
+if (generarDiagramasBtn) {
+    generarDiagramasBtn.addEventListener('click', generarSoloDiagramas);
+}
+
+// Funciones para documento personalizado
+function mostrarPDFSeleccionado() {
+    if (!selectedPDF) {
+        pdfSelected.style.display = 'none';
+        return;
+    }
+    
+    pdfSelected.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-file-pdf text-danger me-2"></i>
+                <strong>${selectedPDF.name}</strong>
+                <small class="text-muted ms-2">(${(selectedPDF.size / 1024).toFixed(1)} KB)</small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" onclick="eliminarPDF()" title="Eliminar PDF">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    pdfSelected.style.display = 'block';
+}
+
+function mostrarArchivosCodigoSeleccionados() {
+    if (selectedCodeFiles.length === 0) {
+        codeFilesSelected.style.display = 'none';
+        return;
+    }
+    
+    codeFilesList.innerHTML = '';
+    
+    selectedCodeFiles.forEach((file, index) => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-info mb-2';
+        fileItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-file-code me-2 text-primary"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
+                    <span class="badge bg-success ms-2">${extension.toUpperCase()}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarArchivoCodigo(${index})" title="Eliminar archivo">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        codeFilesList.appendChild(fileItem);
+    });
+    
+    codeFilesSelected.style.display = 'block';
+}
+
+function eliminarPDF() {
+    selectedPDF = null;
+    pdfInput.value = '';
+    mostrarPDFSeleccionado();
+    verificarArchivosCompletos();
+}
+
+function eliminarArchivoCodigo(index) {
+    selectedCodeFiles.splice(index, 1);
+    mostrarArchivosCodigoSeleccionados();
+    verificarArchivosCompletos();
+}
+
+function verificarArchivosCompletos() {
+    const pdfListo = selectedPDF !== null;
+    const codigoListo = selectedCodeFiles.length > 0;
+    
+    if (completarDocumentoBtn) {
+        completarDocumentoBtn.disabled = !(pdfListo && codigoListo);
+    }
+    
+    if (generarDiagramasBtn) {
+        generarDiagramasBtn.disabled = !codigoListo;
+    }
+}
+
+// Completar documento personalizado
+async function completarDocumentoPersonalizado() {
+    if (!selectedPDF || selectedCodeFiles.length === 0) {
+        alert('Por favor, selecciona un PDF y archivos de código');
+        return;
+    }
+    
+    loadingSpinner.style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        
+        // Agregar PDF
+        formData.append('documento_pdf', selectedPDF);
+        
+        // Agregar archivos de código
+        selectedCodeFiles.forEach((file) => {
+            formData.append('archivos_codigo', file);
+        });
+        
+        // Agregar tipo de documento
+        const tipoDocumento = document.getElementById('tipoDocumento').value;
+        formData.append('tipo_documento', tipoDocumento);
+        
+        const response = await fetch('/api/proyectos/completar-documento-personalizado', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarDocumentoCompletado(data);
+        } else {
+            throw new Error(data.error || 'Error al completar el documento');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al completar el documento: ' + error.message);
+    } finally {
+        loadingSpinner.style.display = 'none';
+    }
+}
+
+// Generar solo diagramas UML
+async function generarSoloDiagramas() {
+    if (selectedCodeFiles.length === 0) {
+        alert('Por favor, selecciona archivos de código');
+        return;
+    }
+    
+    const tipoDiagrama = prompt('¿Qué tipo de diagrama deseas generar?\n\nOpciones:\n- clases\n- secuencia\n- componentes\n- casos_uso\n- actividad', 'clases');
+    
+    if (!tipoDiagrama) return;
+    
+    loadingSpinner.style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        
+        selectedCodeFiles.forEach((file) => {
+            formData.append('archivos', file);
+        });
+        
+        formData.append('tipo_diagrama', tipoDiagrama);
+        
+        const response = await fetch('/api/proyectos/generar-diagramas-uml', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarDiagramasUML(data);
+        } else {
+            throw new Error(data.error || 'Error al generar diagramas');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al generar diagramas: ' + error.message);
+    } finally {
+        loadingSpinner.style.display = 'none';
+    }
+}
+
+// Mostrar documento completado
+function mostrarDocumentoCompletado(data) {
+    resultadosDocumento.innerHTML = `
+        <div class="container">
+            <h2 class="text-center mb-5 fw-bold">📄 Documento Personalizado Completado</h2>
+            
+            <div class="result-section">
+                <h4 class="fw-bold mb-3">
+                    <i class="fas fa-magic text-success me-2"></i>
+                    ${data.tipo_documento} Completado con IA
+                </h4>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Información del Proceso:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Tipo de documento:</strong> ${data.tipo_documento}</li>
+                            <li><strong>Archivos procesados:</strong> ${data.archivos_procesados}</li>
+                            <li><strong>APIs utilizadas:</strong> ${data.api_keys_usadas.length}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Acciones:</h6>
+                        <button class="btn btn-success btn-sm me-2" onclick="descargarDocumentoCompletado()">
+                            <i class="fas fa-download me-1"></i>Descargar Documento
+                        </button>
+                        ${data.diagramas_uml ? `
+                        <button class="btn btn-info btn-sm me-2" onclick="descargarDiagramasUML()">
+                            <i class="fas fa-project-diagram me-1"></i>Descargar PlantUML
+                        </button>
+                        ` : ''}
+                        <button class="btn btn-outline-primary btn-sm" onclick="limpiarDocumentoPersonalizado()">
+                            <i class="fas fa-refresh me-1"></i>Nuevo Documento
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-3">Documento Completado:</h5>
+                        <div class="documento-contenido p-3 bg-light border rounded">
+                            <pre style="white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; margin: 0;">${data.documento_completado}</pre>
+                        </div>
+                    </div>
+                </div>
+                
+                ${data.diagramas_uml ? `
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-3">Código PlantUML Generado:</h5>
+                        <div class="plantuml-contenido p-3 bg-dark text-light border rounded">
+                            <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">${data.diagramas_uml}</pre>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            💡 Copia este código y pégalo en <a href="https://www.plantuml.com/plantuml/uml" target="_blank">PlantUML Online</a> para generar el diagrama visual.
+                        </small>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    resultadosDocumento.style.display = 'block';
+    resultadosDocumento.scrollIntoView({ behavior: 'smooth' });
+    
+    // Guardar datos para descarga
+    window.currentDocumentoCompletado = data;
+}
+
+// Mostrar solo diagramas UML
+function mostrarDiagramasUML(data) {
+    resultadosDocumento.innerHTML = `
+        <div class="container">
+            <h2 class="text-center mb-5 fw-bold">🎨 Diagramas UML Generados</h2>
+            
+            <div class="result-section">
+                <h4 class="fw-bold mb-3">
+                    <i class="fas fa-project-diagram text-info me-2"></i>
+                    Diagrama de ${data.tipo_diagrama.charAt(0).toUpperCase() + data.tipo_diagrama.slice(1)}
+                </h4>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Información:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Tipo:</strong> ${data.tipo_diagrama}</li>
+                            <li><strong>Archivos procesados:</strong> ${data.archivos_procesados}</li>
+                            <li><strong>API utilizada:</strong> ${data.api_key_usada}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Acciones:</h6>
+                        <button class="btn btn-info btn-sm me-2" onclick="descargarSoloDiagramas()">
+                            <i class="fas fa-download me-1"></i>Descargar PlantUML
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="limpiarDocumentoPersonalizado()">
+                            <i class="fas fa-refresh me-1"></i>Generar Otro
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="fw-bold mb-3">Código PlantUML:</h5>
+                        <div class="plantuml-contenido p-3 bg-dark text-light border rounded">
+                            <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">${data.codigo_plantuml}</pre>
+                        </div>
+                        <div class="mt-3 p-3 bg-info bg-opacity-10 border border-info rounded">
+                            <h6 class="fw-bold text-info">💡 Cómo usar este código:</h6>
+                            <ol class="mb-0">
+                                <li>Copia el código PlantUML de arriba</li>
+                                <li>Ve a <a href="https://www.plantuml.com/plantuml/uml" target="_blank" class="text-info">PlantUML Online</a></li>
+                                <li>Pega el código y haz clic en "Submit"</li>
+                                <li>Descarga tu diagrama en PNG, SVG o PDF</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    resultadosDocumento.style.display = 'block';
+    resultadosDocumento.scrollIntoView({ behavior: 'smooth' });
+    
+    // Guardar datos para descarga
+    window.currentDiagramasUML = data;
+}
+
+// Funciones de descarga
+function descargarDocumentoCompletado() {
+    if (!window.currentDocumentoCompletado) {
+        alert('No hay documento completado disponible para descargar');
+        return;
+    }
+    
+    const data = window.currentDocumentoCompletado;
+    const contenido = data.documento_completado;
+    
+    const blob = new Blob([contenido], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${data.tipo_documento}-Completado-${new Date().toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function descargarDiagramasUML() {
+    if (!window.currentDocumentoCompletado || !window.currentDocumentoCompletado.diagramas_uml) {
+        alert('No hay diagramas UML disponibles para descargar');
+        return;
+    }
+    
+    const contenido = window.currentDocumentoCompletado.diagramas_uml;
+    
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Diagramas-UML-${new Date().toISOString().split('T')[0]}.puml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function descargarSoloDiagramas() {
+    if (!window.currentDiagramasUML) {
+        alert('No hay diagramas disponibles para descargar');
+        return;
+    }
+    
+    const data = window.currentDiagramasUML;
+    const contenido = data.codigo_plantuml;
+    
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Diagrama-${data.tipo_diagrama}-${new Date().toISOString().split('T')[0]}.puml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function limpiarDocumentoPersonalizado() {
+    selectedPDF = null;
+    selectedCodeFiles = [];
+    
+    if (pdfInput) pdfInput.value = '';
+    if (codeInput) codeInput.value = '';
+    
+    mostrarPDFSeleccionado();
+    mostrarArchivosCodigoSeleccionados();
+    verificarArchivosCompletos();
+    
+    resultadosDocumento.style.display = 'none';
+    
+    window.currentDocumentoCompletado = null;
+    window.currentDiagramasUML = null;
+}

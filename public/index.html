@@ -145,6 +145,87 @@
         </div>
     </section>
 
+    <!-- Nueva sección para documentos personalizados -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold">📄 Completar Documento Personalizado</h2>
+                        <p class="lead text-secondary">
+                            Sube tu documento PDF personalizado y archivos de código para que la IA lo complete automáticamente
+                        </p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="fw-bold mb-3">
+                                    <i class="fas fa-file-pdf text-danger me-2"></i>
+                                    Documento PDF Personalizado
+                                </h5>
+                                <div class="upload-zone-small mb-3" id="pdfUploadZone">
+                                    <i class="fas fa-file-pdf" style="font-size: 2rem; color: #dc3545;"></i>
+                                    <p class="mb-2">Sube tu formato personalizado</p>
+                                    <input type="file" id="pdfInput" accept=".pdf" style="display: none;">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="document.getElementById('pdfInput').click()">
+                                        <i class="fas fa-upload me-1"></i>Seleccionar PDF
+                                    </button>
+                                </div>
+                                <div id="pdfSelected" style="display: none;" class="file-info mb-3"></div>
+                                
+                                <div class="mb-3">
+                                    <label for="tipoDocumento" class="form-label fw-bold">Tipo de Documento:</label>
+                                    <select class="form-select" id="tipoDocumento">
+                                        <option value="SRS">SRS (Software Requirements Specification)</option>
+                                        <option value="Arquitectura">Documento de Arquitectura</option>
+                                        <option value="Diseño">Documento de Diseño</option>
+                                        <option value="Manual">Manual Técnico</option>
+                                        <option value="API">Documentación de API</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h5 class="fw-bold mb-3">
+                                    <i class="fas fa-code text-primary me-2"></i>
+                                    Archivos de Código
+                                </h5>
+                                <div class="upload-zone-small mb-3" id="codeUploadZone">
+                                    <i class="fas fa-folder-open" style="font-size: 2rem; color: var(--accent-color);"></i>
+                                    <p class="mb-2">Sube archivos o proyecto completo</p>
+                                    <input type="file" id="codeInput" multiple accept=".js,.jsx,.ts,.tsx,.py,.java,.cpp,.c,.cs,.php,.rb,.go,.rs,.html,.css,.scss,.vue,.kt,.swift,.dart,.sql,.zip,.txt,.md" style="display: none;">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('codeInput').click()">
+                                        <i class="fas fa-upload me-1"></i>Seleccionar Código
+                                    </button>
+                                </div>
+                                <div id="codeFilesSelected" style="display: none;">
+                                    <h6>Archivos seleccionados:</h6>
+                                    <div id="codeFilesList"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button class="btn btn-success btn-lg me-3" id="completarDocumentoBtn" disabled>
+                                <i class="fas fa-magic me-2"></i>Completar Documento con IA
+                            </button>
+                            <button class="btn btn-info btn-lg" id="generarDiagramasBtn" disabled>
+                                <i class="fas fa-project-diagram me-2"></i>Generar Solo Diagramas UML
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Sección de resultados para documento personalizado -->
+    <section id="resultadosDocumento" class="py-5" style="display: none;">
+        <!-- El contenido se genera dinámicamente con JavaScript -->
+    </section>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="js/main.js"></script>
 </body>
