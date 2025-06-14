@@ -7,6 +7,14 @@ const generateBtn = document.getElementById('generateBtn');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const resultados = document.getElementById('resultados');
 
+// Variables globales para control de cancelación
+let currentRequest = null;
+let progressInterval = null;
+
+// Variables para el sistema de slides
+let currentSlide = 0;
+const totalSlides = 2;
+
 // Array para almacenar múltiples archivos
 let selectedFiles = [];
 let uploadedFile = null;
@@ -69,12 +77,36 @@ function handleFile(file) {
     handleMultipleFiles([file]);
 }
 
+// Función para ajustar el espaciado de la sección "Cómo funciona"
+function ajustarEspaciadoInstrucciones() {
+    const instruccionesSection = document.querySelector('.py-5.bg-light');
+    const cantidadArchivos = selectedFiles.length;
+    
+    // Remover todas las clases de archivos existentes
+    instruccionesSection.classList.remove('files-1-3', 'files-4-6', 'files-7-10', 'files-many');
+    
+    // Agregar clase según la cantidad de archivos
+    if (cantidadArchivos >= 1 && cantidadArchivos <= 3) {
+        instruccionesSection.classList.add('files-1-3');
+    } else if (cantidadArchivos >= 4 && cantidadArchivos <= 6) {
+        instruccionesSection.classList.add('files-4-6');
+    } else if (cantidadArchivos >= 7 && cantidadArchivos <= 10) {
+        instruccionesSection.classList.add('files-7-10');
+    } else if (cantidadArchivos > 10) {
+        instruccionesSection.classList.add('files-many');
+    }
+}
+
 // Mostrar todos los archivos seleccionados
 function mostrarArchivosSeleccionados() {
     if (selectedFiles.length === 0) {
         uploadedFiles.style.display = 'none';
+        ajustarEspaciadoInstrucciones();
         return;
     }
+    
+    // Actualizar contador
+    document.getElementById('fileCounter').textContent = selectedFiles.length;
     
     filesList.innerHTML = '';
     
@@ -82,6 +114,7 @@ function mostrarArchivosSeleccionados() {
         const extension = file.name.split('.').pop().toLowerCase();
         const fileItem = document.createElement('div');
         fileItem.className = 'file-info mb-2';
+        fileItem.style.cssText = 'background: #f8f9fa; border-radius: 10px; padding: 15px; border-left: 4px solid var(--accent-color); position: relative; z-index: 100;';
         fileItem.innerHTML = `
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -99,6 +132,101 @@ function mostrarArchivosSeleccionados() {
     });
     
     uploadedFiles.style.display = 'block';
+    uploadedFiles.style.position = 'relative';
+    uploadedFiles.style.zIndex = '1000';
+    
+    ajustarEspaciadoInstrucciones();
+}
+
+// Mostrar pop-up de archivos
+function mostrarPopupArchivos() {
+    const overlay = document.getElementById('filesPopupOverlay');
+    const popupFilesList = document.getElementById('popupFilesList');
+    const popupCounter = document.getElementById('popupFileCounter');
+    
+    popupCounter.textContent = selectedFiles.length;
+    popupFilesList.innerHTML = '';
+    
+    selectedFiles.forEach((file, index) => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const fileItem = document.createElement('div');
+        fileItem.className = 'popup-file-item';
+        fileItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-file-code me-2 text-primary"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
+                    <span class="badge bg-success ms-2">${extension.toUpperCase()}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarArchivoPopup(${index})" title="Eliminar archivo">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        popupFilesList.appendChild(fileItem);
+    });
+    
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+// Cerrar pop-up de archivos
+function cerrarPopupArchivos() {
+    document.getElementById('filesPopupOverlay').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Eliminar archivo desde el pop-up
+function eliminarArchivoPopup(index) {
+    selectedFiles.splice(index, 1);
+    mostrarArchivosSeleccionados(); // Actualizar la vista principal
+    
+    // Actualizar el pop-up inmediatamente
+    const popupFilesList = document.getElementById('popupFilesList');
+    const popupCounter = document.getElementById('popupFileCounter');
+    
+    // Actualizar contador
+    popupCounter.textContent = selectedFiles.length;
+    
+    // Si no quedan archivos, cerrar el pop-up
+    if (selectedFiles.length === 0) {
+        cerrarPopupArchivos();
+        return;
+    }
+    
+    // Regenerar la lista en el pop-up
+    popupFilesList.innerHTML = '';
+    selectedFiles.forEach((file, newIndex) => {
+        const extension = file.name.split('.').pop().toLowerCase();
+        const fileItem = document.createElement('div');
+        fileItem.className = 'popup-file-item';
+        fileItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-file-code me-2 text-primary"></i>
+                    <strong>${file.name}</strong>
+                    <small class="text-muted ms-2">(${(file.size / 1024).toFixed(1)} KB)</small>
+                    <span class="badge bg-success ms-2">${extension.toUpperCase()}</span>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarArchivoPopup(${newIndex})" title="Eliminar archivo">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        popupFilesList.appendChild(fileItem);
+    });
+}
+
+// Limpiar todos los archivos
+function limpiarTodosArchivos() {
+    if (confirm('¿Estás seguro de que quieres eliminar todos los archivos?')) {
+        selectedFiles = [];
+        uploadedFile = null;
+        mostrarArchivosSeleccionados();
+        cerrarPopupArchivos();
+        fileInput.value = '';
+    }
 }
 
 // Eliminar archivo específico
@@ -145,14 +273,84 @@ generateBtn.addEventListener('click', async () => {
     reader.readAsText(file);
 });
 
+// Función para mostrar overlay de carga
+function mostrarOverlayCarga() {
+    const overlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('progressBar');
+    
+    overlay.style.display = 'flex';
+    
+    // Simular progreso
+    let progress = 0;
+    progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        progressBar.style.width = progress + '%';
+    }, 1000);
+}
+
+// Función para ocultar overlay de carga
+function ocultarOverlayCarga() {
+    const overlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('progressBar');
+    
+    overlay.style.display = 'none';
+    progressBar.style.width = '0%';
+    
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+}
+
+// Función para cancelar análisis
+function cancelarAnalisis() {
+    if (currentRequest) {
+        currentRequest.abort();
+        currentRequest = null;
+    }
+    
+    ocultarOverlayCarga();
+    
+    // Restaurar estado inicial
+    uploadedFiles.style.display = 'block';
+    loadingSpinner.style.display = 'none';
+    
+    // Mostrar notificación
+    mostrarNotificacion('Análisis cancelado', 'warning');
+}
+
+// Función para mostrar notificaciones
+function mostrarNotificacion(mensaje, tipo = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${tipo} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 100px; right: 20px; z-index: 10000; min-width: 300px;';
+    notification.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
 // Función para analizar archivo individual
 async function analizarArchivoIndividual() {
-    // Ocultar sección de archivos y mostrar loading
-    uploadedFiles.style.display = 'none';
-    loadingSpinner.style.display = 'block';
+    // NO ocultar uploadedFiles para que sigan visibles
+    mostrarOverlayCarga();
     
     try {
         console.log('🔍 Enviando archivo a la IA para análisis...');
+        
+        // Crear AbortController para poder cancelar
+        const controller = new AbortController();
+        currentRequest = controller;
         
         const response = await fetch('/api/proyectos/analizar-codigo', {
             method: 'POST',
@@ -163,7 +361,8 @@ async function analizarArchivoIndividual() {
                 codigo: uploadedFile.content,
                 nombreArchivo: uploadedFile.name,
                 lenguajeProgramacion: uploadedFile.extension
-            })
+            }),
+            signal: controller.signal
         });
         
         const data = await response.json();
@@ -174,23 +373,33 @@ async function analizarArchivoIndividual() {
         
         console.log('✅ Análisis completado');
         
-        // Mostrar resultados
-        mostrarAnalisis(data);
+        // Completar progreso y ocultar overlay
+        document.getElementById('progressBar').style.width = '100%';
+        setTimeout(() => {
+            ocultarOverlayCarga();
+            mostrarAnalisis(data);
+        }, 500);
         
     } catch (error) {
-        console.error('❌ Error:', error);
-        alert(`Error: ${error.message}`);
+        if (error.name === 'AbortError') {
+            console.log('Análisis cancelado por el usuario');
+            return;
+        }
         
-        // Volver a mostrar la sección de archivos
-        loadingSpinner.style.display = 'none';
-        uploadedFiles.style.display = 'block';
+        console.error('❌ Error en análisis:', error);
+        ocultarOverlayCarga();
+        
+        // Mostrar error sin ocultar archivos
+        mostrarNotificacion('Error al analizar el código: ' + error.message, 'error');
+    } finally {
+        currentRequest = null;
     }
 }
 
 // Analizar proyecto completo
 async function analizarProyecto() {
     uploadedFiles.style.display = 'none';
-    loadingSpinner.style.display = 'block';
+    mostrarOverlayCarga();
     
     try {
         const formData = new FormData();
@@ -200,24 +409,41 @@ async function analizarProyecto() {
             formData.append('archivos', file);
         });
         
+        // Crear AbortController para poder cancelar
+        const controller = new AbortController();
+        currentRequest = controller;
+        
         const response = await fetch('/api/proyectos/analizar-proyecto', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         });
         
         const data = await response.json();
         
         if (data.success) {
-            mostrarDocumentacionSRS(data);
+            // Completar progreso y mostrar resultados
+            document.getElementById('progressBar').style.width = '100%';
+            setTimeout(() => {
+                ocultarOverlayCarga();
+                mostrarDocumentacionSRS(data);
+            }, 500);
         } else {
             throw new Error(data.error || 'Error al analizar el proyecto');
         }
         
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Análisis cancelado por el usuario');
+            return;
+        }
+        
         console.error('Error:', error);
-        loadingSpinner.style.display = 'none';
+        ocultarOverlayCarga();
         uploadedFiles.style.display = 'block';
-        alert('Error al analizar el proyecto: ' + error.message);
+        mostrarNotificacion('Error al analizar el proyecto: ' + error.message, 'danger');
+    } finally {
+        currentRequest = null;
     }
 }
 
@@ -577,9 +803,89 @@ function setupLogout() {
 
 // Inicializar cuando se carga la página
 document.addEventListener('DOMContentLoaded', () => {
+    initializeSlideSystem();
     checkAuth();
     setupLogout();
 });
+
+// Inicializar sistema de slides
+function initializeSlideSystem() {
+    const slideTabs = document.querySelectorAll('.slide-tab');
+    const indicatorLine = document.querySelector('.indicator-line');
+    
+    // Event listeners para los tabs
+    slideTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => {
+            switchToSlide(index);
+        });
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' && currentSlide > 0) {
+            switchToSlide(currentSlide - 1);
+        } else if (e.key === 'ArrowRight' && currentSlide < totalSlides - 1) {
+            switchToSlide(currentSlide + 1);
+        }
+    });
+}
+
+function switchToSlide(slideIndex) {
+    if (slideIndex === currentSlide) return;
+    
+    const slides = document.querySelectorAll('.slide');
+    const slideTabs = document.querySelectorAll('.slide-tab');
+    const indicatorLine = document.querySelector('.indicator-line');
+    
+    // Remover clases activas
+    slides[currentSlide].classList.remove('active');
+    slideTabs[currentSlide].classList.remove('active');
+    
+    // Agregar clase prev al slide actual antes de cambiar
+    if (slideIndex < currentSlide) {
+        slides[currentSlide].classList.add('prev');
+    }
+    
+    // Actualizar slide actual
+    currentSlide = slideIndex;
+    
+    // Activar nuevo slide
+    setTimeout(() => {
+        slides.forEach(slide => slide.classList.remove('prev'));
+        slides[currentSlide].classList.add('active');
+        slideTabs[currentSlide].classList.add('active');
+        
+        // Actualizar indicador
+        indicatorLine.className = `indicator-line slide-${currentSlide}`;
+    }, 50);
+    
+    // Limpiar resultados al cambiar de slide
+    document.getElementById('resultados').style.display = 'none';
+    document.getElementById('resultadosDocumento').style.display = 'none';
+}
+
+// Función para mostrar notificación de cambio de modo
+function showSlideNotification(slideName) {
+    const notification = document.createElement('div');
+    notification.className = 'slide-notification';
+    notification.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        Cambiado a: ${slideName}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 2000);
+}
 
 
 // Variables para documento personalizado
@@ -722,7 +1028,7 @@ async function completarDocumentoPersonalizado() {
         return;
     }
     
-    loadingSpinner.style.display = 'block';
+    mostrarOverlayCarga();
     
     try {
         const formData = new FormData();
@@ -756,7 +1062,7 @@ async function completarDocumentoPersonalizado() {
         console.error('Error:', error);
         alert('Error al completar el documento: ' + error.message);
     } finally {
-        loadingSpinner.style.display = 'none';
+        ocultarOverlayCarga();
     }
 }
 
@@ -771,7 +1077,7 @@ async function generarSoloDiagramas() {
     
     if (!tipoDiagrama) return;
     
-    loadingSpinner.style.display = 'block';
+    mostrarOverlayCarga();
     
     try {
         const formData = new FormData();
@@ -799,7 +1105,7 @@ async function generarSoloDiagramas() {
         console.error('Error:', error);
         alert('Error al generar diagramas: ' + error.message);
     } finally {
-        loadingSpinner.style.display = 'none';
+        ocultarOverlayCarga();
     }
 }
 
@@ -814,7 +1120,7 @@ async function generarSoloMermaid() {
     
     if (!tipoDiagrama) return;
     
-    loadingSpinner.style.display = 'block';
+    mostrarOverlayCarga();
     
     try {
         const formData = new FormData();
@@ -842,7 +1148,7 @@ async function generarSoloMermaid() {
         console.error('Error:', error);
         alert('Error al generar diagramas Mermaid: ' + error.message);
     } finally {
-        loadingSpinner.style.display = 'none';
+        ocultarOverlayCarga();
     }
 }
 
@@ -1186,3 +1492,24 @@ function limpiarDocumentoPersonalizado() {
     window.currentDiagramasUML = null;
     window.currentDiagramasMermaid = null;
 }
+
+// Funciones para el pop-up informativo
+function mostrarInfoPopup() {
+    const overlay = document.getElementById('infoPopupOverlay');
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevenir scroll del fondo
+}
+
+function cerrarInfoPopup() {
+    const overlay = document.getElementById('infoPopupOverlay');
+    overlay.style.display = 'none';
+    document.body.style.overflow = 'auto'; // Restaurar scroll
+}
+
+// Cerrar pop-up con tecla Escape
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        cerrarInfoPopup();
+    }
+}
+);
