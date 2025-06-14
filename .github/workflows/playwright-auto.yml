@@ -5,6 +5,10 @@ on:
     branches:
       - main         # Cambia esto si tu rama principal es otra
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   run-playwright-tests:
     runs-on: ubuntu-latest
@@ -28,7 +32,7 @@ jobs:
         run: npm run test:reporte
 
       - name: 📁 Subir reportes como artefacto
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: reporte-evidencia
           path: reportes/
