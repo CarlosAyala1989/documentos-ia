@@ -709,10 +709,14 @@ router.get('/historial', requireAuth, async (req, res) => {
         const usuarioId = req.session.user.id;
         
         // Obtener proyectos del usuario
-        const proyectos = await proyectosService.obtenerProyectosConUsuario(usuarioId);
+        const proyectos = await proyectosService.obtenerProyectosPorUsuario(usuarioId);
         
-        // Obtener documentos del usuario
-        const documentos = await documentosService.obtenerDocumentosConDetalles(usuarioId);
+        // Obtener todos los documentos del usuario
+        let documentos = [];
+        for (const proyecto of proyectos) {
+            const docsProyecto = await documentosService.obtenerDocumentosPorProyecto(proyecto.id);
+            documentos = documentos.concat(docsProyecto);
+        }
         
         // Obtener información actualizada del usuario
         const usuario = await usuariosService.obtenerUsuarioPorId(usuarioId);
@@ -735,7 +739,7 @@ router.get('/historial', requireAuth, async (req, res) => {
                 total_documentos: documentos.length,
                 proyectos_completados: proyectos.filter(p => p.estado_procesamiento === 'completado').length,
                 proyectos_en_proceso: proyectos.filter(p => p.estado_procesamiento === 'procesando').length,
-                proyectos_con_error: proyectos.filter(p => p.estado_procesamiento.includes('error')).length
+                proyectos_con_error: proyectos.filter(p => p.estado_procesamiento && p.estado_procesamiento.includes('error')).length
             }
         });
         

@@ -16,10 +16,42 @@
                 <i class="fas fa-robot text-primary me-2"></i>
                 DocuGen AI
             </a>
-            <div class="ms-auto">
-                <button id="logoutBtn" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-sign-out-alt me-1"></i>Cerrar Sesión
-                </button>
+            <div class="ms-auto d-flex align-items-center">
+                <!-- Mini hamburguesa de opciones de usuario -->
+                <div class="dropdown me-3">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="userOptionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user-circle me-1"></i>
+                        <span id="userNameDisplay">Usuario</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userOptionsDropdown">
+                        <li>
+                            <h6 class="dropdown-header">
+                                <i class="fas fa-user me-2"></i>
+                                <span id="userEmailDisplay">usuario@email.com</span>
+                            </h6>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="historialBtn">
+                                <i class="fas fa-history me-2"></i>
+                                Ver Historial de Consultas
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="perfilBtn">
+                                <i class="fas fa-user-edit me-2"></i>
+                                Mi Perfil
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt me-2"></i>
+                                Cerrar Sesión
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
@@ -275,6 +307,127 @@
         </div>
     </div>
 
+    <!-- Modal de Historial de Consultas -->
+    <div class="modal fade" id="historialModal" tabindex="-1" aria-labelledby="historialModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="historialModalLabel">
+                        <i class="fas fa-history me-2"></i>
+                        Historial de Consultas
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Estadísticas del usuario -->
+                    <div class="row mb-4" id="estadisticasUsuario">
+                        <div class="col-md-3">
+                            <div class="card text-center bg-primary text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-project-diagram fa-2x mb-2"></i>
+                                    <h4 id="totalProyectos">0</h4>
+                                    <small>Total Proyectos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-success text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                    <h4 id="totalDocumentos">0</h4>
+                                    <small>Documentos Generados</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-info text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <h4 id="proyectosCompletados">0</h4>
+                                    <small>Completados</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-warning text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h4 id="proyectosProceso">0</h4>
+                                    <small>En Proceso</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs para proyectos y documentos -->
+                    <ul class="nav nav-tabs" id="historialTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="proyectos-tab" data-bs-toggle="tab" data-bs-target="#proyectos-pane" type="button" role="tab">
+                                <i class="fas fa-code me-2"></i>Proyectos de Código
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#documentos-pane" type="button" role="tab">
+                                <i class="fas fa-file-alt me-2"></i>Documentos Generados
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="historialTabContent">
+                        <!-- Tab de Proyectos -->
+                        <div class="tab-pane fade show active" id="proyectos-pane" role="tabpanel">
+                            <div class="mt-3">
+                                <div id="loadingHistorial" class="text-center py-4" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2">Cargando historial...</p>
+                                </div>
+                                <div id="proyectosList" class="row"></div>
+                            </div>
+                        </div>
+
+                        <!-- Tab de Documentos -->
+                        <div class="tab-pane fade" id="documentos-pane" role="tabpanel">
+                            <div class="mt-3">
+                                <div id="documentosList" class="row"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="actualizarHistorial">
+                        <i class="fas fa-sync-alt me-2"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver contenido completo de documento -->
+    <div class="modal fade" id="documentoModal" tabindex="-1" aria-labelledby="documentoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="documentoModalLabel">
+                        <i class="fas fa-file-alt me-2"></i>
+                        <span id="documentoTitulo">Documento</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="documentoContenido" style="max-height: 70vh; overflow-y: auto;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="descargarDocumento">
+                        <i class="fas fa-download me-2"></i>Descargar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="js/main.js"></script>
 </body>

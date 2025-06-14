@@ -751,3 +751,89 @@ body {
         gap: 10px;
     }
 }
+
+/* Estilos para el dropdown de usuario */
+.dropdown-toggle::after {
+    margin-left: 0.5em;
+}
+
+.dropdown-header {
+    font-size: 0.9rem;
+    color: var(--text-primary) !important;
+}
+
+.dropdown-item {
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background-color: var(--primary-color);
+    transform: translateX(5px);
+}
+
+/* Estilos para el modal de historial */
+.modal-xl {
+    max-width: 95%;
+}
+
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+/* Estilos para las estadísticas */
+.card-body h4 {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+/* Responsive para el modal */
+@media (max-width: 768px) {
+    .modal-xl {
+        max-width: 100%;
+        margin: 0;
+    }
+    
+    .modal-dialog {
+        height: 100vh;
+    }
+    
+    .modal-content {
+        height: 100%;
+        border-radius: 0;
+    }
+}
+
+/* Estilos para el contenido de documentos */
+#documentoContenido pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Animaciones para las tarjetas */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.6s ease-out;
+}

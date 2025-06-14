@@ -1512,4 +1512,410 @@ document.addEventListener('keydown', function(event) {
         cerrarInfoPopup();
     }
 }
-);
+)
+
+// ==========================================
+// FUNCIONALIDAD DE HISTORIAL DE CONSULTAS
+// ==========================================
+
+// Variables globales para historial
+let historialData = null;
+let documentoActual = null;
+
+// Inicializar funcionalidad de historial cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar información del usuario en el dropdown
+    cargarInfoUsuario();
+    
+    // Event listeners
+    document.getElementById('historialBtn').addEventListener('click', mostrarHistorial);
+    document.getElementById('actualizarHistorial').addEventListener('click', cargarHistorial);
+    
+    // Mover el event listener del logout al nuevo botón
+    const oldLogoutBtn = document.getElementById('logoutBtn');
+    if (oldLogoutBtn) {
+        oldLogoutBtn.addEventListener('click', logout);
+    }
+});
+
+// Cargar información del usuario para mostrar en el dropdown
+async function cargarInfoUsuario() {
+    try {
+        const response = await fetch('/api/proyectos/historial');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.usuario) {
+                const usuario = data.usuario;
+                document.getElementById('userNameDisplay').textContent = 
+                    usuario.nombre_completo || 'Usuario';
+                document.getElementById('userEmailDisplay').textContent = 
+                    usuario.correo_electronico || 'usuario@email.com';
+            }
+        }
+    } catch (error) {
+        console.error('Error al cargar información del usuario:', error);
+    }
+}
+
+// Mostrar modal de historial
+async function mostrarHistorial() {
+    const modal = new bootstrap.Modal(document.getElementById('historialModal'));
+    modal.show();
+    
+    // Cargar datos del historial
+    await cargarHistorial();
+}
+
+// Cargar historial desde el servidor
+async function cargarHistorial() {
+    const loadingElement = document.getElementById('loadingHistorial');
+    loadingElement.style.display = 'block';
+    
+    try {
+        const response = await fetch('/api/proyectos/historial');
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            historialData = data;
+            mostrarEstadisticas(data.estadisticas);
+            mostrarProyectos(data.proyectos);
+            mostrarDocumentos(data.documentos);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar historial:', error);
+        mostrarError('Error al cargar el historial: ' + error.message);
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+// Mostrar estadísticas del usuario
+function mostrarEstadisticas(estadisticas) {
+    document.getElementById('totalProyectos').textContent = estadisticas.total_proyectos || 0;
+    document.getElementById('totalDocumentos').textContent = estadisticas.total_documentos || 0;
+    document.getElementById('proyectosCompletados').textContent = estadisticas.proyectos_completados || 0;
+    document.getElementById('proyectosProceso').textContent = estadisticas.proyectos_en_proceso || 0;
+}
+
+// Mostrar lista de proyectos
+function mostrarProyectos(proyectos) {
+    const container = document.getElementById('proyectosList');
+    container.innerHTML = '';
+    
+    if (!proyectos || proyectos.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No tienes proyectos de código aún. ¡Sube tu primer proyecto!
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    proyectos.forEach(proyecto => {
+        const estadoBadge = obtenerBadgeEstado(proyecto.estado_procesamiento);
+        const fechaCreacion = new Date(proyecto.creado_en).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const proyectoCard = `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-code me-2"></i>
+                            ${proyecto.nombre_proyecto}
+                        </h6>
+                        ${estadoBadge}
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted small">
+                            ${proyecto.descripcion || 'Sin descripción'}
+                        </p>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-code me-1"></i>
+                                ${proyecto.lenguaje_programacion || 'No especificado'}
+                            </small>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>
+                                ${fechaCreacion}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-sm btn-outline-primary" onclick="verProyecto(${proyecto.id})">
+                            <i class="fas fa-eye me-1"></i>Ver Detalles
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML += proyectoCard;
+    });
+}
+
+// Mostrar lista de documentos
+function mostrarDocumentos(documentos) {
+    const container = document.getElementById('documentosList');
+    container.innerHTML = '';
+    
+    if (!documentos || documentos.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No tienes documentos generados aún.
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    documentos.forEach(documento => {
+        const fechaGeneracion = new Date(documento.generado_en).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const tipoIcon = obtenerIconoTipoDocumento(documento.tipo_documento);
+        const formatoBadge = obtenerBadgeFormato(documento.formato_salida);
+        
+        const documentoCard = `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            ${tipoIcon}
+                            ${documento.tipo_documento}
+                        </h6>
+                        ${formatoBadge}
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted small">
+                            <strong>Proyecto:</strong> ${documento.nombre_proyecto || 'Sin nombre'}
+                        </p>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>
+                                ${fechaGeneracion}
+                            </small>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-tag me-1"></i>
+                                Versión ${documento.version || '1.0'}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="verDocumento(${documento.id})">
+                            <i class="fas fa-eye me-1"></i>Ver Contenido
+                        </button>
+                        ${documento.url_documento ? `
+                            <button class="btn btn-sm btn-outline-success" onclick="descargarDocumentoUrl('${documento.url_documento}')">
+                                <i class="fas fa-download me-1"></i>Descargar
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML += documentoCard;
+    });
+}
+
+// Funciones auxiliares para badges e iconos
+function obtenerBadgeEstado(estado) {
+    const badges = {
+        'completado': '<span class="badge bg-success">Completado</span>',
+        'procesando': '<span class="badge bg-warning">Procesando</span>',
+        'pendiente': '<span class="badge bg-secondary">Pendiente</span>',
+        'error_subida': '<span class="badge bg-danger">Error Subida</span>',
+        'error_analisis': '<span class="badge bg-danger">Error Análisis</span>',
+        'subiendo': '<span class="badge bg-info">Subiendo</span>'
+    };
+    return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
+}
+
+function obtenerBadgeFormato(formato) {
+    const badges = {
+        'texto_plano': '<span class="badge bg-secondary">Texto</span>',
+        'markdown': '<span class="badge bg-info">Markdown</span>',
+        'pdf_url': '<span class="badge bg-danger">PDF</span>',
+        'json': '<span class="badge bg-warning">JSON</span>'
+    };
+    return badges[formato] || '<span class="badge bg-secondary">Otro</span>';
+}
+
+function obtenerIconoTipoDocumento(tipo) {
+    const iconos = {
+        'SRS': '<i class="fas fa-file-alt me-2"></i>',
+        'Análisis de Código': '<i class="fas fa-code me-2"></i>',
+        'Documento Completado': '<i class="fas fa-file-check me-2"></i>',
+        'Diagramas UML': '<i class="fas fa-project-diagram me-2"></i>',
+        'Análisis de Estructura': '<i class="fas fa-sitemap me-2"></i>',
+        'Diagramas Mermaid': '<i class="fas fa-chart-line me-2"></i>'
+    };
+    return iconos[tipo] || '<i class="fas fa-file me-2"></i>';
+}
+
+// Ver detalles de un proyecto específico
+async function verProyecto(proyectoId) {
+    try {
+        const response = await fetch(`/api/proyectos/proyecto/${proyectoId}`);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Mostrar detalles del proyecto en un modal o expandir la tarjeta
+            alert(`Proyecto: ${data.proyecto.nombre_proyecto}\nEstado: ${data.proyecto.estado_procesamiento}\nDocumentos: ${data.documentos.length}`);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar proyecto:', error);
+        mostrarError('Error al cargar el proyecto: ' + error.message);
+    }
+}
+
+// Ver contenido completo de un documento
+async function verDocumento(documentoId) {
+    if (!historialData || !historialData.documentos) {
+        mostrarError('No se han cargado los datos del historial');
+        return;
+    }
+    
+    const documento = historialData.documentos.find(doc => doc.id === documentoId);
+    
+    if (!documento) {
+        mostrarError('Documento no encontrado');
+        return;
+    }
+    
+    documentoActual = documento;
+    
+    // Configurar el modal
+    document.getElementById('documentoTitulo').textContent = documento.tipo_documento;
+    
+    const contenidoElement = document.getElementById('documentoContenido');
+    
+    if (documento.contenido_documento) {
+        // Si el contenido es markdown, convertirlo a HTML básico
+        let contenidoHTML = documento.contenido_documento;
+        
+        if (documento.formato_salida === 'markdown') {
+            contenidoHTML = convertirMarkdownBasico(contenidoHTML);
+        }
+        
+        contenidoElement.innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Segoe UI', sans-serif;">${contenidoHTML}</pre>`;
+    } else if (documento.url_documento) {
+        contenidoElement.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-external-link-alt fa-3x text-muted mb-3"></i>
+                <p>Este documento está disponible como enlace externo.</p>
+                <a href="${documento.url_documento}" target="_blank" class="btn btn-primary">
+                    <i class="fas fa-external-link-alt me-2"></i>Abrir Documento
+                </a>
+            </div>
+        `;
+    } else {
+        contenidoElement.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <p>No hay contenido disponible para este documento.</p>
+            </div>
+        `;
+    }
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('documentoModal'));
+    modal.show();
+}
+
+// Descargar documento desde URL
+function descargarDocumentoUrl(url) {
+    window.open(url, '_blank');
+}
+
+// Convertir markdown básico a HTML
+function convertirMarkdownBasico(markdown) {
+    return markdown
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/\n/g, '<br>');
+}
+
+// Función de logout (mover aquí desde el código existente)
+function logout() {
+    if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+        fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/login';
+            } else {
+                alert('Error al cerrar sesión');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cerrar sesión');
+        });
+    }
+}
+
+// Función para mostrar errores
+function mostrarError(mensaje) {
+    // Crear un toast o alert para mostrar errores
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
