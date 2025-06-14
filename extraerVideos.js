@@ -1,6 +1,6 @@
 // extraerVideos.js
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 // Buscar todos los index.html en subcarpetas
 function findHtmlReports(dir) {
