@@ -1,16 +1,16 @@
-name: CI - Playwright Automático
+name: CI - Playwright con Servidor
 
 on:
   push:
     branches:
-      - main         # Cambia esto si tu rama principal es otra
+      - main
 
 permissions:
   contents: read
   actions: write
 
 jobs:
-  run-playwright-tests:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,10 +25,23 @@ jobs:
       - name: 📦 Instalar dependencias
         run: npm install
 
-      - name: 🌐 Instalar navegadores de Playwright
+      - name: 🌐 Instalar navegadores Playwright
         run: npx playwright install --with-deps
 
-      - name: 🧪 Ejecutar todos los tests con reporter y extracción de videos
+      - name: 🚀 Iniciar servidor Express
+        run: npm start &
+        env:
+            PORT: 3000
+
+      - name: ⏱ Esperar que el servidor esté listo (localhost:3000)
+        uses: nick-invision/retry@v2
+        with:
+            timeout_minutes: 1
+            max_attempts: 10
+            retry_wait_seconds: 3
+            command: curl --fail http://localhost:3000
+
+      - name: 🧪 Ejecutar todos los tests y extraer videos
         run: npm run test:reporte
 
       - name: 📁 Subir reportes como artefacto
