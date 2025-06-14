@@ -76,10 +76,7 @@
                                 <p class="lead text-secondary">
                                     Sube tu proyecto completo y obtén documentación técnica automática
                                 </p>
-                                <!-- Botón informativo -->
-                                <button class="btn btn-outline-info btn-sm mt-2" onclick="mostrarInfoPopup()">
-                                    <i class="fas fa-info-circle me-1"></i>¿Cómo funciona?
-                                </button>
+                                <!-- Botón informativo eliminado -->
                             </div>
                             
                             <div class="upload-zone" id="uploadZone">
@@ -256,51 +253,7 @@
         </div>
     </div>
 
-    <!-- Modal de información "Cómo funciona" -->
-    <div class="info-popup-overlay" id="infoPopupOverlay" onclick="cerrarInfoPopup()">
-        <div class="info-popup-content" onclick="event.stopPropagation()">
-            <div class="info-popup-header">
-                <h4 class="fw-bold mb-0">
-                    <i class="fas fa-info-circle text-primary me-2"></i>
-                    ¿Cómo funciona?
-                </h4>
-                <button class="btn-close-popup" onclick="cerrarInfoPopup()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="info-popup-body">
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <div class="info-step">
-                            <div class="step-icon">
-                                <i class="fas fa-upload text-primary"></i>
-                            </div>
-                            <h6 class="fw-bold mt-2">1. Elige tu opción</h6>
-                            <small>Selecciona entre SRS o documento personalizado</small>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="info-step">
-                            <div class="step-icon">
-                                <i class="fas fa-brain text-primary"></i>
-                            </div>
-                            <h6 class="fw-bold mt-2">2. IA analiza</h6>
-                            <small>Gemini AI lee y comprende tu código</small>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="info-step">
-                            <div class="step-icon">
-                                <i class="fas fa-file-alt text-primary"></i>
-                            </div>
-                            <h6 class="fw-bold mt-2">3. Obtén el resultado</h6>
-                            <small>Recibe documentación completa y profesional</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Modal de información "Cómo funciona" eliminado -->
 
     <!-- Pop-up para ver archivos -->
     <div class="files-popup-overlay" id="filesPopupOverlay" style="display: none;">
