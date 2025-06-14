@@ -1,0 +1,98 @@
+# Page snapshot
+
+```yaml
+- navigation:
+  - link " DocuGen AI":
+    - /url: "#"
+  - button " Cerrar Sesión"
+- heading " Analizador de Código con IA" [level=1]
+- paragraph: Sube tu archivo de código y obtén un análisis detallado usando Inteligencia Artificial
+- text: 
+- heading "Sube tu archivo de código" [level=4]
+- paragraph: Arrastra y suelta tu archivo aquí o haz clic para seleccionar
+- text: 
+- heading "Sube tu proyecto completo" [level=4]
+- paragraph: Arrastra múltiples archivos aquí o haz clic para seleccionar
+- paragraph: "Soporta: .js, .py, .java, .cpp, .html, .css, .zip, .rar"
+- button " Seleccionar Archivos"
+- text: "Formatos soportados: .js, .py, .java, .cpp, .c, .html, .css, .php, .rb, .go, .ts, .jsx, .tsx, .cs, .kt, .swift, .dart, .sql"
+- heading "¿Cómo funciona?" [level=3]
+- text: 
+- heading "1. Sube tu archivo" [level=6]
+- text: Selecciona cualquier archivo de código 
+- heading "2. IA analiza" [level=6]
+- text: Gemini AI lee y comprende tu código 
+- heading "3. Obtén el resumen" [level=6]
+- text: Recibe un análisis detallado
+- heading "📄 Completar Documento Personalizado" [level=2]
+- paragraph: Sube tu documento PDF personalizado y archivos de código para que la IA lo complete automáticamente
+- heading " Documento PDF Personalizado" [level=5]
+- text: 
+- paragraph: Sube tu formato personalizado
+- button " Seleccionar PDF"
+- text: "Tipo de Documento:"
+- combobox "Tipo de Documento:":
+  - option "SRS (Software Requirements Specification)" [selected]
+  - option "Documento de Arquitectura"
+  - option "Documento de Diseño"
+  - option "Manual Técnico"
+  - option "Documentación de API"
+  - option "Otro"
+- heading " Archivos de Código" [level=5]
+- text: 
+- paragraph: Sube archivos o proyecto completo
+- button " Seleccionar Código"
+- heading "Archivos seleccionados:" [level=6]
+- text: 
+- strong: aplicacion.php
+- text: (0.4 KB) PHP
+- button ""
+- text: 
+- strong: control.php
+- text: (0.4 KB) PHP
+- button ""
+- text: 
+- strong: index.php
+- text: (1.2 KB) PHP
+- button ""
+- text: 
+- strong: salir.php
+- text: (0.4 KB) PHP
+- button ""
+- text: 
+- strong: seguridad.php
+- text: (0.6 KB) PHP
+- button ""
+- button " Completar Documento con IA" [disabled]
+- button " Generar Solo Diagramas UML"
+- button " Generar Diagramas Mermaid"
+- heading "🎨 Diagramas UML Generados" [level=2]
+- heading " Diagrama de Secuencia" [level=4]
+- heading "Información:" [level=6]
+- list:
+  - listitem:
+    - strong: "Tipo:"
+    - text: secuencia
+  - listitem:
+    - strong: "Archivos procesados:"
+    - text: "5"
+  - listitem:
+    - strong: "APIs utilizadas:"
+    - text: "3"
+  - listitem: ✅ Validado
+  - listitem: 🚀 Optimizado
+- heading "Acciones:" [level=6]
+- button " Descargar PlantUML"
+- button " Generar Otro"
+- heading "🖼️ Vista Previa del Diagrama:" [level=5]
+- img "Diagrama UML"
+- heading "Descargar en diferentes formatos:" [level=6]
+- link " PNG":
+  - /url: https://www.plantuml.com/plantuml/png/~1@startuml%0Atitle Diagrama de Secuencia de Autenticaci%C3%B3n%0A%0Aactor Usuario%0Aparticipant Index%0Aparticipant Control%0Aparticipant Seguridad%0Aparticipant Aplicacion%0Aparticipant Salir%0A%0AUsuario -> Index%3A Ingresa datos%0Aactivate Index%0AIndex -> Control%3A Env%C3%ADa datos%0Aactivate Control%0AControl -> Control%3A Valida credenciales%0Aalt Validaci%C3%B3n correcta%0A    Control -> Control%3A Crea sesi%C3%B3n%0A    Control -> Aplicacion%3A Redirecciona%0A    deactivate Control%0A    activate Aplicacion%0A    Aplicacion -> Seguridad%3A Verifica sesi%C3%B3n%0A    activate Seguridad%0A    Seguridad -> Seguridad%3A Verifica tiempo%0A    Seguridad -> Aplicacion%3A Acceso permitido%0A    deactivate Seguridad%0A    Aplicacion -> Usuario%3A Muestra p%C3%A1gina segura%0A    Usuario -> Aplicacion%3A Salir%0A    Aplicacion -> Salir%3A Redirecciona%0A    activate Salir%0A    Salir -> Salir%3A Destruye sesi%C3%B3n%0A    Salir -> Index%3A Redirecciona%0A    deactivate Salir%0A    deactivate Aplicacion%0Aelse Validaci%C3%B3n incorrecta%0A    Control -> Index%3A Redirecciona con error%0A    deactivate Control%0A    Index -> Usuario%3A Muestra error%0A    deactivate Index%0Aend%0A%0A@enduml
+- link " SVG":
+  - /url: https://www.plantuml.com/plantuml/svg/~1@startuml%0Atitle Diagrama de Secuencia de Autenticaci%C3%B3n%0A%0Aactor Usuario%0Aparticipant Index%0Aparticipant Control%0Aparticipant Seguridad%0Aparticipant Aplicacion%0Aparticipant Salir%0A%0AUsuario -> Index%3A Ingresa datos%0Aactivate Index%0AIndex -> Control%3A Env%C3%ADa datos%0Aactivate Control%0AControl -> Control%3A Valida credenciales%0Aalt Validaci%C3%B3n correcta%0A    Control -> Control%3A Crea sesi%C3%B3n%0A    Control -> Aplicacion%3A Redirecciona%0A    deactivate Control%0A    activate Aplicacion%0A    Aplicacion -> Seguridad%3A Verifica sesi%C3%B3n%0A    activate Seguridad%0A    Seguridad -> Seguridad%3A Verifica tiempo%0A    Seguridad -> Aplicacion%3A Acceso permitido%0A    deactivate Seguridad%0A    Aplicacion -> Usuario%3A Muestra p%C3%A1gina segura%0A    Usuario -> Aplicacion%3A Salir%0A    Aplicacion -> Salir%3A Redirecciona%0A    activate Salir%0A    Salir -> Salir%3A Destruye sesi%C3%B3n%0A    Salir -> Index%3A Redirecciona%0A    deactivate Salir%0A    deactivate Aplicacion%0Aelse Validaci%C3%B3n incorrecta%0A    Control -> Index%3A Redirecciona con error%0A    deactivate Control%0A    Index -> Usuario%3A Muestra error%0A    deactivate Index%0Aend%0A%0A@enduml
+- link " PDF":
+  - /url: https://www.plantuml.com/plantuml/pdf/~1@startuml%0Atitle Diagrama de Secuencia de Autenticaci%C3%B3n%0A%0Aactor Usuario%0Aparticipant Index%0Aparticipant Control%0Aparticipant Seguridad%0Aparticipant Aplicacion%0Aparticipant Salir%0A%0AUsuario -> Index%3A Ingresa datos%0Aactivate Index%0AIndex -> Control%3A Env%C3%ADa datos%0Aactivate Control%0AControl -> Control%3A Valida credenciales%0Aalt Validaci%C3%B3n correcta%0A    Control -> Control%3A Crea sesi%C3%B3n%0A    Control -> Aplicacion%3A Redirecciona%0A    deactivate Control%0A    activate Aplicacion%0A    Aplicacion -> Seguridad%3A Verifica sesi%C3%B3n%0A    activate Seguridad%0A    Seguridad -> Seguridad%3A Verifica tiempo%0A    Seguridad -> Aplicacion%3A Acceso permitido%0A    deactivate Seguridad%0A    Aplicacion -> Usuario%3A Muestra p%C3%A1gina segura%0A    Usuario -> Aplicacion%3A Salir%0A    Aplicacion -> Salir%3A Redirecciona%0A    activate Salir%0A    Salir -> Salir%3A Destruye sesi%C3%B3n%0A    Salir -> Index%3A Redirecciona%0A    deactivate Salir%0A    deactivate Aplicacion%0Aelse Validaci%C3%B3n incorrecta%0A    Control -> Index%3A Redirecciona con error%0A    deactivate Control%0A    Index -> Usuario%3A Muestra error%0A    deactivate Index%0Aend%0A%0A@enduml
+- heading "📝 Código PlantUML:" [level=5]
+- text: "@startuml title Diagrama de Secuencia de Autenticación actor Usuario participant Index participant Control participant Seguridad participant Aplicacion participant Salir Usuario -> Index: Ingresa datos activate Index Index -> Control: Envía datos activate Control Control -> Control: Valida credenciales alt Validación correcta Control -> Control: Crea sesión Control -> Aplicacion: Redirecciona deactivate Control activate Aplicacion Aplicacion -> Seguridad: Verifica sesión activate Seguridad Seguridad -> Seguridad: Verifica tiempo Seguridad -> Aplicacion: Acceso permitido deactivate Seguridad Aplicacion -> Usuario: Muestra página segura Usuario -> Aplicacion: Salir Aplicacion -> Salir: Redirecciona activate Salir Salir -> Salir: Destruye sesión Salir -> Index: Redirecciona deactivate Salir deactivate Aplicacion else Validación incorrecta Control -> Index: Redirecciona con error deactivate Control Index -> Usuario: Muestra error deactivate Index end @enduml"
+```

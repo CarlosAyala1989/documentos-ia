@@ -47,24 +47,45 @@ test('Subir código y generar diagrama UML', async ({ page, context }) => {
   await page.waitForTimeout(20_000);
 
   // 6. Copiar el código UML del contenedor correspondiente
-  const umlCodeElement = page.locator('div.plantuml-contenido pre');
-  await expect(umlCodeElement).toBeVisible();
-  const umlCode = await umlCodeElement.innerText();
+const umlCodeElement = page.locator('div.plantuml-contenido pre');
+await expect(umlCodeElement).toBeVisible();
+const umlCode = await umlCodeElement.innerText();
 
-  // 7. Ir a https://www.planttext.com/
-  const newPage = await context.newPage();
-  await newPage.goto('https://www.planttext.com/');
+// 7. Ir a https://www.planttext.com/
+const newPage = await context.newPage();
+await newPage.goto('https://www.planttext.com/');
 
-  // 8. Esperar y sobreescribir el contenido en el editor
-  const editor = newPage.locator('div.ace_content');
-  await expect(editor).toBeVisible();
+// 7.5. Cerrar anuncio emergente si existe
+const modals = newPage.locator('div.ui-dialog');
+const count = await modals.count();
 
-  await newPage.keyboard.press('Control+A');
-  await newPage.keyboard.type(umlCode, { delay: 5 });
+for (let i = 0; i < count; i++) {
+  const modal = modals.nth(i);
+  const closeBtn = modal.locator('button[title="Close"]');
+  if (await closeBtn.isVisible()) {
+    await closeBtn.click();
+    break;
+  }
+}
 
-  // 9. Hacer clic en "Refresh"
-  await newPage.locator('input#refresh-button2').click();
+// 8. Esperar editor y pegar usando Ctrl+V
+const editor = newPage.locator('div.ace_content');
+await expect(editor).toBeVisible({ timeout: 10000 });
+await editor.click();
 
-  // 10. Ver página durante 5 segundos
-  await newPage.waitForTimeout(5000);
+// Copiar al portapapeles y pegar
+await newPage.evaluate(async (umlCode) => {
+  await navigator.clipboard.writeText(umlCode);
+}, umlCode);
+
+await newPage.keyboard.press('Control+A');
+await newPage.keyboard.press('Delete');
+await newPage.keyboard.press('Control+V');
+
+// 9. Hacer clic en "Refresh"
+await newPage.locator('input#refresh-button2').click();
+
+// 10. Ver página durante 5 segundos
+await newPage.waitForTimeout(5000);
+
 });

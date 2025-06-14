@@ -51,12 +51,12 @@ test('Subir archivo, analizar con IA y visualizar PDF', async ({ page, context }
     const step = 100;
     for (let y = 0; y < scrollHeight; y += step) {
       window.scrollTo(0, y);
-      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms entre pasos
+      await new Promise(resolve => setTimeout(resolve, 50)); // 100ms entre pasos
     }
   });
 
-  // 11. Esperar 5 segundos al final para grabar bien todo
-  await newPage.waitForTimeout(5000);
+  // 11. Esperar 2 segundos al final para grabar bien todo
+  await newPage.waitForTimeout(2000);
 
   console.log('✅ Proceso completado con scroll gradual y análisis IA.');
 });
