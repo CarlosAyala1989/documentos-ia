@@ -49,7 +49,7 @@ test('Subir código y generar diagrama UML', async ({ page, context }) => {
   // 6. Copiar el código UML del contenedor correspondiente
 const umlCodeElement = page.locator('div.plantuml-contenido pre');
 await expect(umlCodeElement).toBeVisible();
-const umlCode = await umlCodeElement.innerText();
+const umlCode = await umlCodeElement.textContent();
 
 // 7. Ir a https://www.planttext.com/
 const newPage = await context.newPage();
@@ -74,13 +74,10 @@ await expect(editor).toBeVisible({ timeout: 10000 });
 await editor.click();
 
 // Copiar al portapapeles y pegar
-await newPage.evaluate(async (umlCode) => {
-  await navigator.clipboard.writeText(umlCode);
+await newPage.evaluate((umlCode) => {
+  const editorInstance = (window as any).ace.edit("editor");
+  editorInstance.setValue(umlCode, -1);
 }, umlCode);
-
-await newPage.keyboard.press('Control+A');
-await newPage.keyboard.press('Delete');
-await newPage.keyboard.press('Control+V');
 
 // 9. Hacer clic en "Refresh"
 await newPage.locator('input#refresh-button2').click();
