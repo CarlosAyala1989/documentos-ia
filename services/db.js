@@ -76,7 +76,27 @@ const usuariosService = {
       throw error;
     }
   },
-  
+  // Obtener usuario por email
+  async obtenerUsuarioPorEmail(email) {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('correo_electronico', email)
+        .eq('esta_activo', true)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error al obtener usuario por email:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerUsuarioPorEmail:', error);
+      throw error;
+    }
+  },
+
   // Obtener usuario por ID
   async obtenerUsuarioPorId(id) {
     try {
@@ -284,6 +304,8 @@ const documentosService = {
     }
   }
 };
+
+
 
 module.exports = {
   usuariosService,

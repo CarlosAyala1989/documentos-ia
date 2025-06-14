@@ -710,3 +710,44 @@ body {
     max-height: 300px;
     overflow-y: auto;
 }
+
+
+/* Estilos para recuperación de contraseña */
+.captcha-container {
+    margin: 20px 0;
+}
+
+.captcha-question {
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 120px;
+    text-align: center;
+    border: 2px solid var(--accent-color);
+}
+
+#newPasswordSection {
+    border-top: 2px solid #e9ecef;
+    padding-top: 20px;
+    margin-top: 20px;
+}
+
+.auth-tab {
+    min-width: 140px;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .auth-tabs {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .auth-tab {
+        min-width: auto;
+    }
+    
+    .captcha-container .d-flex {
+        flex-direction: column;
+        gap: 10px;
+    }
+}

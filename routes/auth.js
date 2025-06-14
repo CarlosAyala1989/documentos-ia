@@ -150,4 +150,68 @@ router.get('/user', async (req, res) => {
   }
 });
 
+// Verificar si el email existe en la base de datos
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email es requerido' });
+    }
+    
+    // Verificar si el email existe en la base de datos
+    const emailExists = await usuariosService.verificarEmailExiste(email);
+    
+    if (!emailExists) {
+      return res.status(404).json({ error: 'No existe una cuenta con este email' });
+    }
+    
+    res.json({ message: 'Email verificado correctamente' });
+    
+  } catch (error) {
+    console.error('Error al verificar email:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Cambiar contraseña
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email y nueva contraseña son requeridos' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+    
+    // Verificar que el email existe
+    const emailExists = await usuariosService.verificarEmailExiste(email);
+    
+    if (!emailExists) {
+      return res.status(404).json({ error: 'No existe una cuenta con este email' });
+    }
+    
+    // Obtener el usuario por email
+    const usuario = await usuariosService.obtenerUsuarioPorEmail(email);
+    
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    // Actualizar la contraseña
+    await usuariosService.actualizarUsuario(usuario.id, {
+      contrasena: newPassword // Guardamos en texto plano como en el sistema actual
+    });
+    
+    res.json({ message: 'Contraseña actualizada correctamente' });
+    
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;
