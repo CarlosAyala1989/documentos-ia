@@ -1,0 +1,58 @@
+name: CI - Playwright con Servidor
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: 📦 Instalar dependencias
+        run: npm install
+
+      - name: 🌐 Instalar navegadores Playwright
+        run: npx playwright install --with-deps
+
+      - name: 🚀 Iniciar servidor Express
+        run: npm start &
+        env:
+          PORT: 3000
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          API_KEY_1: ${{ secrets.API_KEY_1 }}
+
+      - name: ⏱ Esperar que el servidor esté listo (localhost:3000)
+        uses: nick-invision/retry@v2
+        with:
+          timeout_minutes: 1
+          max_attempts: 10
+          retry_wait_seconds: 3
+          command: curl --fail http://localhost:3000
+
+      - name: 🧪 Ejecutar todos los tests y extraer videos
+        run: npm run test:reporte
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          API_KEY_1: ${{ secrets.API_KEY_1 }}
+
+      - name: 📁 Subir reportes como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-evidencia
+          path: reportes/
