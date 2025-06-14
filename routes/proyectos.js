@@ -1,11 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const geminiService = require('../services/gemini');
+const { usuariosService, proyectosService, documentosService } = require('../services/db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const AdmZip = require('adm-zip');
 const pdfParse = require('pdf-parse');
+
+// Configurar multer para manejar archivos (MOVER AQUÍ)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB límite
+    }
+});
 
 // Middleware para verificar autenticación
 const requireAuth = (req, res, next) => {
@@ -16,10 +26,11 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// Ruta principal: Analizar código con IA
+// Ruta principal: Analizar código con IA (MODIFICADA)
 router.post('/analizar-codigo', requireAuth, async (req, res) => {
   try {
-    const { codigo, nombreArchivo, lenguajeProgramacion } = req.body;
+    const { codigo, nombreArchivo, lenguajeProgramacion, nombreProyecto, descripcionProyecto } = req.body;
+    const usuarioId = req.session.user.id;
     
     // Validar datos de entrada
     if (!codigo || !nombreArchivo) {
@@ -29,34 +40,86 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
     }
     
     console.log(`🔍 Usuario ${req.session.user.email} analizando: ${nombreArchivo}`);
-    console.log(`📝 Longitud del código: ${codigo.length} caracteres`);
     
-    // Analizar código con Gemini
-    const resultado = await geminiService.analizarCodigo(
-      codigo, 
-      nombreArchivo, 
-      lenguajeProgramacion || 'auto'
-    );
+    // 1. Crear proyecto en la base de datos
+    const proyectoData = {
+      usuario_id: usuarioId,
+      nombre_proyecto: nombreProyecto || nombreArchivo,
+      descripcion: descripcionProyecto || `Análisis de código del archivo ${nombreArchivo}`,
+      lenguaje_programacion: lenguajeProgramacion || 'auto',
+      contenido_codigo: codigo,
+      estado_procesamiento: 'procesando'
+    };
     
-    if (!resultado.success) {
-      console.error('❌ Error en análisis de Gemini:', resultado.error);
-      return res.status(500).json({ 
-        error: 'Error al analizar el código con IA',
-        detalle: resultado.error 
+    const proyectoCreado = await proyectosService.crearProyecto(proyectoData);
+    console.log(`📊 Proyecto creado en BD con ID: ${proyectoCreado.id}`);
+    
+    try {
+      // 2. Analizar código con Gemini
+      const resultado = await geminiService.analizarCodigo(
+        codigo, 
+        nombreArchivo, 
+        lenguajeProgramacion || 'auto'
+      );
+      
+      if (!resultado.success) {
+        // Actualizar estado a error
+        await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+        console.error('❌ Error en análisis de Gemini:', resultado.error);
+        return res.status(500).json({ 
+          error: 'Error al analizar el código con IA',
+          detalle: resultado.error 
+        });
+      }
+      
+      // 3. Actualizar proyecto con resultados
+      await proyectosService.actualizarProyecto(proyectoCreado.id, {
+        lenguaje_programacion: resultado.lenguaje_detectado || lenguajeProgramacion,
+        estado_procesamiento: 'completado'
       });
+      
+      // 4. Crear documento generado
+      const documentoData = {
+        proyecto_codigo_id: proyectoCreado.id,
+        usuario_id: usuarioId,
+        tipo_documento: 'Análisis de Código',
+        formato_salida: 'markdown',
+        contenido_documento: resultado.analisis,
+        parametros_generacion_json: JSON.stringify({
+          archivo_original: nombreArchivo,
+          lenguaje_detectado: resultado.lenguaje_detectado,
+          estadisticas: resultado.estadisticas,
+          api_key_usada: resultado.api_key_usada
+        })
+      };
+      
+      const documentoCreado = await documentosService.crearDocumento(documentoData);
+      console.log(`📄 Documento creado en BD con ID: ${documentoCreado.id}`);
+      
+      // 5. Actualizar información del usuario (último análisis)
+      await usuariosService.actualizarInformacionAdicional(usuarioId, {
+        ultimo_inicio_sesion_en: new Date().toISOString()
+      });
+      
+      console.log('✅ Análisis completado y guardado en BD exitosamente');
+      
+      // Responder con el análisis y IDs de BD
+      res.status(200).json({
+        success: true,
+        proyecto_id: proyectoCreado.id,
+        documento_id: documentoCreado.id,
+        analisis: resultado.analisis,
+        lenguaje_detectado: resultado.lenguaje_detectado,
+        estadisticas: resultado.estadisticas,
+        archivo: nombreArchivo,
+        api_key_usada: resultado.api_key_usada
+      });
+      
+    } catch (analysisError) {
+      // Si falla el análisis, actualizar estado del proyecto
+      await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+      throw analysisError;
     }
-    
-    console.log('✅ Análisis completado exitosamente');
-    
-    // Responder con el análisis
-    res.status(200).json({
-      success: true,
-      analisis: resultado.analisis,
-      lenguaje_detectado: resultado.lenguaje_detectado,
-      estadisticas: resultado.estadisticas,
-      archivo: nombreArchivo,
-      api_key_usada: resultado.api_key_usada
-    });
     
   } catch (error) {
     console.error('❌ Error general en análisis de código:', error);
@@ -67,19 +130,12 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
   }
 });
 
-// Configurar multer para manejar archivos
-const storage = multer.memoryStorage();
-const upload = multer({ 
-    storage: storage,
-    limits: {
-        fileSize: 50 * 1024 * 1024 // 50MB límite
-    }
-});
-
-// Nueva ruta para analizar proyecto completo
+// Nueva ruta para analizar proyecto completo (MODIFICADA)
 router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), async (req, res) => {
     try {
         const archivos = req.files;
+        const { nombreProyecto, descripcionProyecto } = req.body;
+        const usuarioId = req.session.user.id;
         
         if (!archivos || archivos.length === 0) {
             return res.status(400).json({ 
@@ -89,12 +145,11 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
         
         console.log(`🔍 Usuario ${req.session.user.email} analizando proyecto con ${archivos.length} archivos`);
         
+        // 1. Procesar archivos
         let todosLosArchivos = [];
         
-        // Procesar cada archivo
         for (const archivo of archivos) {
             if (archivo.mimetype === 'application/zip' || archivo.originalname.endsWith('.zip')) {
-                // Extraer archivos del ZIP
                 const zip = new AdmZip(archivo.buffer);
                 const zipEntries = zip.getEntries();
                 
@@ -108,7 +163,6 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
                     }
                 });
             } else if (esArchivoValido(archivo.originalname)) {
-                // Archivo individual
                 todosLosArchivos.push({
                     nombre: archivo.originalname,
                     contenido: archivo.buffer.toString('utf8'),
@@ -123,37 +177,89 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
             });
         }
         
-        // Crear análisis consolidado del proyecto
-        const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
-        
-        // Generar documentación SRS con Gemini
-        const resultadoSRS = await geminiService.generarDocumentacionSRS(analisisProyecto);
-        
-        if (!resultadoSRS.success) {
-            console.error('❌ Error al generar SRS:', resultadoSRS.error);
-            return res.status(500).json({ 
-                error: 'Error al generar documentación SRS',
-                detalle: resultadoSRS.error 
-            });
-        }
-        
-        // Calcular estadísticas del proyecto
-        const estadisticasTotales = calcularEstadisticasProyecto(todosLosArchivos);
+        // 2. Detectar lenguajes principales
         const lenguajesDetectados = [...new Set(todosLosArchivos.map(archivo => 
             geminiService.detectarLenguaje(archivo.nombre, archivo.contenido)
         ))];
         
-        console.log('✅ Documentación SRS generada exitosamente');
+        // 3. Crear proyecto en la base de datos
+        const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
         
-        // Responder con la documentación SRS
-        res.status(200).json({
-            success: true,
-            documentacion_srs: resultadoSRS.contenido,
-            archivos_procesados: todosLosArchivos.length,
-            lenguajes_detectados: lenguajesDetectados,
-            estadisticas_totales: estadisticasTotales,
-            api_key_usada: resultadoSRS.api_key_usada
-        });
+        const proyectoData = {
+            usuario_id: usuarioId,
+            nombre_proyecto: nombreProyecto || `Proyecto ${new Date().toISOString().split('T')[0]}`,
+            descripcion: descripcionProyecto || `Análisis de proyecto con ${todosLosArchivos.length} archivos`,
+            lenguaje_programacion: lenguajesDetectados[0] || 'mixto',
+            contenido_codigo: analisisProyecto,
+            estado_procesamiento: 'procesando'
+        };
+        
+        const proyectoCreado = await proyectosService.crearProyecto(proyectoData);
+        console.log(`📊 Proyecto creado en BD con ID: ${proyectoCreado.id}`);
+        
+        try {
+            // 4. Generar documentación SRS con Gemini
+            const resultadoSRS = await geminiService.generarDocumentacionSRS(analisisProyecto);
+            
+            if (!resultadoSRS.success) {
+                await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+                console.error('❌ Error al generar SRS:', resultadoSRS.error);
+                return res.status(500).json({ 
+                    error: 'Error al generar documentación SRS',
+                    detalle: resultadoSRS.error 
+                });
+            }
+            
+            // 5. Calcular estadísticas del proyecto
+            const estadisticasTotales = calcularEstadisticasProyecto(todosLosArchivos);
+            
+            // 6. Actualizar proyecto con resultados
+            await proyectosService.actualizarProyecto(proyectoCreado.id, {
+                lenguaje_programacion: lenguajesDetectados.join(', '),
+                estado_procesamiento: 'completado'
+            });
+            
+            // 7. Crear documento SRS generado
+            const documentoData = {
+                proyecto_codigo_id: proyectoCreado.id,
+                usuario_id: usuarioId,
+                tipo_documento: 'SRS (Software Requirements Specification)',
+                formato_salida: 'markdown',
+                contenido_documento: resultadoSRS.contenido,
+                parametros_generacion_json: JSON.stringify({
+                    archivos_procesados: todosLosArchivos.length,
+                    lenguajes_detectados: lenguajesDetectados,
+                    estadisticas_totales: estadisticasTotales,
+                    api_key_usada: resultadoSRS.api_key_usada
+                })
+            };
+            
+            const documentoCreado = await documentosService.crearDocumento(documentoData);
+            console.log(`📄 Documento SRS creado en BD con ID: ${documentoCreado.id}`);
+            
+            // 8. Actualizar información del usuario
+            await usuariosService.actualizarInformacionAdicional(usuarioId, {
+                ultimo_inicio_sesion_en: new Date().toISOString()
+            });
+            
+            console.log('✅ Documentación SRS generada y guardada en BD exitosamente');
+            
+            // Responder con la documentación SRS y IDs de BD
+            res.status(200).json({
+                success: true,
+                proyecto_id: proyectoCreado.id,
+                documento_id: documentoCreado.id,
+                documentacion_srs: resultadoSRS.contenido,
+                archivos_procesados: todosLosArchivos.length,
+                lenguajes_detectados: lenguajesDetectados,
+                estadisticas_totales: estadisticasTotales,
+                api_key_usada: resultadoSRS.api_key_usada
+            });
+            
+        } catch (analysisError) {
+            await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+            throw analysisError;
+        }
         
     } catch (error) {
         console.error('❌ Error general en análisis de proyecto:', error);
@@ -207,7 +313,7 @@ function calcularEstadisticasProyecto(archivos) {
 
 module.exports = router;
 
-// Nueva ruta: Completar documento personalizado con IA
+// Nueva ruta: Completar documento personalizado con IA (MODIFICADA)
 router.post('/completar-documento-personalizado', requireAuth, upload.fields([
     { name: 'documento_pdf', maxCount: 1 },
     { name: 'archivos_codigo', maxCount: 50 }
@@ -215,7 +321,8 @@ router.post('/completar-documento-personalizado', requireAuth, upload.fields([
     try {
         const documentoPDF = req.files['documento_pdf'] ? req.files['documento_pdf'][0] : null;
         const archivosCodigo = req.files['archivos_codigo'] || [];
-        const { tipo_documento } = req.body;
+        const { tipo_documento, nombreProyecto, descripcionProyecto } = req.body;
+        const usuarioId = req.session.user.id;
         
         if (!documentoPDF) {
             return res.status(400).json({ 
@@ -276,38 +383,142 @@ router.post('/completar-documento-personalizado', requireAuth, upload.fields([
             });
         }
         
+        // Detectar lenguajes principales
+        const lenguajesDetectados = [...new Set(todosLosArchivos.map(archivo => 
+            geminiService.detectarLenguaje(archivo.nombre, archivo.contenido)
+        ))];
+        
         // Crear análisis del proyecto
         const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
         
-        // Completar documento con análisis avanzado usando múltiples APIs
-        console.log('🤖 Iniciando análisis avanzado con múltiples APIs de Gemini...');
-        const resultado = await geminiService.analisisAvanzadoConMultiplesAPIs(
-            contenidoPDF,
-            analisisProyecto,
-            tipo_documento || 'SRS'
-        );
+        // 1. Crear proyecto en la base de datos
+        const proyectoData = {
+            usuario_id: usuarioId,
+            nombre_proyecto: nombreProyecto || `Documento Personalizado - ${documentoPDF.originalname}`,
+            descripcion: descripcionProyecto || `Completar documento personalizado ${tipo_documento || 'SRS'} con ${todosLosArchivos.length} archivos de código`,
+            lenguaje_programacion: lenguajesDetectados[0] || 'mixto',
+            contenido_codigo: analisisProyecto,
+            estado_procesamiento: 'procesando'
+        };
         
-        if (!resultado.success) {
-            console.error('❌ Error en análisis avanzado:', resultado.error);
-            return res.status(500).json({ 
-                error: 'Error al completar el documento personalizado',
-                detalle: resultado.error 
+        const proyectoCreado = await proyectosService.crearProyecto(proyectoData);
+        console.log(`📊 Proyecto creado en BD con ID: ${proyectoCreado.id}`);
+        
+        try {
+            // 2. Completar documento con análisis avanzado usando múltiples APIs
+            console.log('🤖 Iniciando análisis avanzado con múltiples APIs de Gemini...');
+            const resultado = await geminiService.analisisAvanzadoConMultiplesAPIs(
+                contenidoPDF,
+                analisisProyecto,
+                tipo_documento || 'SRS'
+            );
+            
+            if (!resultado.success) {
+                // Actualizar estado a error
+                await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+                console.error('❌ Error en análisis avanzado:', resultado.error);
+                return res.status(500).json({ 
+                    error: 'Error al completar el documento personalizado',
+                    detalle: resultado.error 
+                });
+            }
+            
+            // 3. Actualizar proyecto con resultados
+            await proyectosService.actualizarProyecto(proyectoCreado.id, {
+                lenguaje_programacion: lenguajesDetectados[0] || 'mixto',
+                estado_procesamiento: 'completado',
+                ultimo_analisis_en: new Date().toISOString()
             });
+            
+            // 4. Crear documento generado principal (documento completado)
+            const documentoCompletadoData = {
+                proyecto_codigo_id: proyectoCreado.id,
+                usuario_id: usuarioId,
+                tipo_documento: `Documento Personalizado - ${tipo_documento || 'SRS'}`,
+                formato_salida: 'markdown',
+                contenido_documento: resultado.documento_completado,
+                parametros_generacion_json: JSON.stringify({
+                    documento_original: documentoPDF.originalname,
+                    tipo_documento: tipo_documento || 'SRS',
+                    archivos_procesados: todosLosArchivos.length,
+                    lenguajes_detectados: lenguajesDetectados,
+                    api_keys_usadas: resultado.api_keys_usadas,
+                    tiene_diagramas_uml: !!resultado.diagramas_uml,
+                    analisis_estructura: !!resultado.analisis_estructura
+                })
+            };
+            
+            const documentoCompletado = await documentosService.crearDocumento(documentoCompletadoData);
+            console.log(`📄 Documento completado creado en BD con ID: ${documentoCompletado.id}`);
+            
+            // 5. Crear documento adicional para diagramas UML (si existen)
+            let documentoDiagramas = null;
+            if (resultado.diagramas_uml) {
+                const documentoDiagramasData = {
+                    proyecto_codigo_id: proyectoCreado.id,
+                    usuario_id: usuarioId,
+                    tipo_documento: 'Diagramas UML',
+                    formato_salida: 'texto_plano',
+                    contenido_documento: resultado.diagramas_uml,
+                    parametros_generacion_json: JSON.stringify({
+                        generado_con_documento_personalizado: true,
+                        documento_principal_id: documentoCompletado.id,
+                        tipo_diagrama: 'clases'
+                    })
+                };
+                
+                documentoDiagramas = await documentosService.crearDocumento(documentoDiagramasData);
+                console.log(`🎨 Documento de diagramas UML creado en BD con ID: ${documentoDiagramas.id}`);
+            }
+            
+            // 6. Crear documento adicional para análisis de estructura (si existe)
+            let documentoAnalisisEstructura = null;
+            if (resultado.analisis_estructura) {
+                const documentoAnalisisData = {
+                    proyecto_codigo_id: proyectoCreado.id,
+                    usuario_id: usuarioId,
+                    tipo_documento: 'Análisis de Estructura',
+                    formato_salida: 'markdown',
+                    contenido_documento: resultado.analisis_estructura,
+                    parametros_generacion_json: JSON.stringify({
+                        generado_con_documento_personalizado: true,
+                        documento_principal_id: documentoCompletado.id,
+                        documento_original: documentoPDF.originalname
+                    })
+                };
+                
+                documentoAnalisisEstructura = await documentosService.crearDocumento(documentoAnalisisData);
+                console.log(`📋 Documento de análisis de estructura creado en BD con ID: ${documentoAnalisisEstructura.id}`);
+            }
+            
+            // 7. Actualizar información del usuario (último análisis)
+            await usuariosService.actualizarInformacionAdicional(usuarioId, {
+                ultimo_inicio_sesion_en: new Date().toISOString()
+            });
+            
+            console.log('✅ Documento personalizado completado y guardado en BD exitosamente');
+            
+            // Responder con el documento completado y IDs de BD
+            res.status(200).json({
+                success: true,
+                proyecto_id: proyectoCreado.id,
+                documento_completado_id: documentoCompletado.id,
+                documento_diagramas_id: documentoDiagramas?.id || null,
+                documento_analisis_estructura_id: documentoAnalisisEstructura?.id || null,
+                documento_original: contenidoPDF.substring(0, 1000) + '...', // Muestra solo los primeros 1000 caracteres
+                documento_completado: resultado.documento_completado,
+                diagramas_uml: resultado.diagramas_uml,
+                analisis_estructura: resultado.analisis_estructura,
+                archivos_procesados: todosLosArchivos.length,
+                tipo_documento: tipo_documento || 'SRS',
+                api_keys_usadas: resultado.api_keys_usadas
+            });
+            
+        } catch (analysisError) {
+            // Si falla el análisis, actualizar estado del proyecto
+            await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
+            throw analysisError;
         }
-        
-        console.log('✅ Documento personalizado completado exitosamente');
-        
-        // Responder con el documento completado
-        res.status(200).json({
-            success: true,
-            documento_original: contenidoPDF.substring(0, 1000) + '...', // Muestra solo los primeros 1000 caracteres
-            documento_completado: resultado.documento_completado,
-            diagramas_uml: resultado.diagramas_uml,
-            analisis_estructura: resultado.analisis_estructura,
-            archivos_procesados: todosLosArchivos.length,
-            tipo_documento: tipo_documento || 'SRS',
-            api_keys_usadas: resultado.api_keys_usadas
-        });
         
     } catch (error) {
         console.error('❌ Error general al completar documento personalizado:', error);
@@ -491,3 +702,90 @@ router.post('/generar-diagramas-mermaid', requireAuth, upload.array('archivos', 
         });
     }
 });
+
+// Nueva ruta: Obtener historial de proyectos y documentos del usuario
+router.get('/historial', requireAuth, async (req, res) => {
+    try {
+        const usuarioId = req.session.user.id;
+        
+        // Obtener proyectos del usuario
+        const proyectos = await proyectosService.obtenerProyectosConUsuario(usuarioId);
+        
+        // Obtener documentos del usuario
+        const documentos = await documentosService.obtenerDocumentosConDetalles(usuarioId);
+        
+        // Obtener información actualizada del usuario
+        const usuario = await usuariosService.obtenerUsuarioPorId(usuarioId);
+        
+        console.log(`📊 Historial obtenido para usuario ${req.session.user.email}: ${proyectos.length} proyectos, ${documentos.length} documentos`);
+        
+        res.status(200).json({
+            success: true,
+            usuario: {
+                id: usuario.id,
+                correo_electronico: usuario.correo_electronico,
+                nombre_completo: usuario.nombre_completo,
+                ultimo_inicio_sesion_en: usuario.ultimo_inicio_sesion_en,
+                creado_en: usuario.creado_en
+            },
+            proyectos: proyectos,
+            documentos: documentos,
+            estadisticas: {
+                total_proyectos: proyectos.length,
+                total_documentos: documentos.length,
+                proyectos_completados: proyectos.filter(p => p.estado_procesamiento === 'completado').length,
+                proyectos_en_proceso: proyectos.filter(p => p.estado_procesamiento === 'procesando').length,
+                proyectos_con_error: proyectos.filter(p => p.estado_procesamiento.includes('error')).length
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error al obtener historial:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor al obtener historial',
+            detalle: error.message 
+        });
+    }
+});
+
+// Nueva ruta: Obtener proyecto específico con sus documentos
+router.get('/proyecto/:id', requireAuth, async (req, res) => {
+    try {
+        const proyectoId = req.params.id;
+        const usuarioId = req.session.user.id;
+        
+        // Obtener proyecto
+        const proyecto = await proyectosService.obtenerProyectoPorId(proyectoId);
+        
+        if (!proyecto) {
+            return res.status(404).json({ 
+                error: 'Proyecto no encontrado' 
+            });
+        }
+        
+        // Verificar que el proyecto pertenece al usuario
+        if (proyecto.usuario_id !== usuarioId) {
+            return res.status(403).json({ 
+                error: 'No tienes permisos para acceder a este proyecto' 
+            });
+        }
+        
+        // Obtener documentos del proyecto
+        const documentos = await documentosService.obtenerDocumentosPorProyecto(proyectoId);
+        
+        res.status(200).json({
+            success: true,
+            proyecto: proyecto,
+            documentos: documentos
+        });
+        
+    } catch (error) {
+        console.error('❌ Error al obtener proyecto:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor al obtener proyecto',
+            detalle: error.message 
+        });
+    }
+});
+
+module.exports = router;

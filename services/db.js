@@ -140,6 +140,54 @@ const usuariosService = {
       console.error('Error en actualizarUsuario:', error);
       throw error;
     }
+  },
+
+  // Actualizar último inicio de sesión
+  async actualizarUltimoInicioSesion(id) {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .update({ 
+          ultimo_inicio_sesion_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select();
+        
+      if (error) {
+        console.error('Error al actualizar último inicio de sesión:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en actualizarUltimoInicioSesion:', error);
+      throw error;
+    }
+  },
+
+  // Actualizar información adicional del usuario
+  async actualizarInformacionAdicional(id, datos) {
+    try {
+      const updateData = {
+        ...datos,
+        actualizado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('usuarios')
+        .update(updateData)
+        .eq('id', id)
+        .select();
+        
+      if (error) {
+        console.error('Error al actualizar información adicional:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en actualizarInformacionAdicional:', error);
+      throw error;
+    }
   }
 };
 
@@ -233,6 +281,60 @@ const proyectosService = {
       console.error('Error en actualizarEstadoProcesamiento:', error);
       throw error;
     }
+  },
+  
+  // Actualizar proyecto con información completa
+  async actualizarProyecto(id, proyectoData) {
+    try {
+      const updateData = {
+        ...proyectoData,
+        actualizado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('proyectos_codigo')
+        .update(updateData)
+        .eq('id', id)
+        .select();
+        
+      if (error) {
+        console.error('Error al actualizar proyecto:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en actualizarProyecto:', error);
+      throw error;
+    }
+  },
+
+  // Obtener proyectos con información del usuario
+  async obtenerProyectosConUsuario(usuarioId) {
+    try {
+      const { data, error } = await supabase
+        .from('proyectos_codigo')
+        .select(`
+          *,
+          usuarios!fk_proyecto_usuario(
+            id,
+            correo_electronico,
+            nombre,
+            apellidos,
+            nombre_completo
+          )
+        `)
+        .eq('usuario_id', usuarioId)
+        .order('creado_en', { ascending: false });
+        
+      if (error) {
+        console.error('Error al obtener proyectos con usuario:', error);
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error en obtenerProyectosConUsuario:', error);
+      throw error;
+    }
   }
 };
 
@@ -302,10 +404,33 @@ const documentosService = {
       console.error('Error en obtenerDocumentoPorId:', error);
       throw error;
     }
+  },
+
+  // Actualizar documento
+  async actualizarDocumento(id, documentoData) {
+    try {
+      const updateData = {
+        ...documentoData,
+        actualizado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('documentos_generados')
+        .update(updateData)
+        .eq('id', id)
+        .select();
+        
+      if (error) {
+        console.error('Error al actualizar documento:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en actualizarDocumento:', error);
+      throw error;
+    }
   }
 };
-
-
 
 module.exports = {
   usuariosService,
