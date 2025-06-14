@@ -31,18 +31,25 @@ jobs:
       - name: 🚀 Iniciar servidor Express
         run: npm start &
         env:
-            PORT: 3000
+          PORT: 3000
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          API_KEY_1: ${{ secrets.API_KEY_1 }}
 
       - name: ⏱ Esperar que el servidor esté listo (localhost:3000)
         uses: nick-invision/retry@v2
         with:
-            timeout_minutes: 1
-            max_attempts: 10
-            retry_wait_seconds: 3
-            command: curl --fail http://localhost:3000
+          timeout_minutes: 1
+          max_attempts: 10
+          retry_wait_seconds: 3
+          command: curl --fail http://localhost:3000
 
       - name: 🧪 Ejecutar todos los tests y extraer videos
         run: npm run test:reporte
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          API_KEY_1: ${{ secrets.API_KEY_1 }}
 
       - name: 📁 Subir reportes como artefacto
         uses: actions/upload-artifact@v4
