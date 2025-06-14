@@ -22,6 +22,11 @@ test('Subir código y generar diagrama UML', async ({ page, context }) => {
   await page.fill('input[type="password"]', 'walas1234');
   await page.getByRole('button', { name: /Iniciar Sesión/i }).click();
 
+  // 1.6. Esperar que cargue el botón "Documento personalizado"
+  const docPersonalizadoBtn = page.getByRole('button', { name: /Documento personalizado/i });
+  await expect(docPersonalizadoBtn).toBeVisible({ timeout: 10000 });
+  await docPersonalizadoBtn.click();
+
   // 2. Esperar y hacer clic en "Seleccionar Código"
   const seleccionarCodigoBtn = page.getByRole('button', { name: /Seleccionar Código/i });
   await expect(seleccionarCodigoBtn).toBeVisible({ timeout: 10000 });
@@ -37,7 +42,7 @@ test('Subir código y generar diagrama UML', async ({ page, context }) => {
 
   // 4. Primero preparamos el handler del prompt
   page.once('dialog', async (dialog) => {
-  await dialog.accept('secuencia');
+    await dialog.accept('secuencia');
   });
 
   // 4.5. Ahora sí, hacemos clic para disparar el prompt
@@ -47,42 +52,41 @@ test('Subir código y generar diagrama UML', async ({ page, context }) => {
   await page.waitForTimeout(20_000);
 
   // 6. Copiar el código UML del contenedor correspondiente
-const umlCodeElement = page.locator('div.plantuml-contenido pre');
-await expect(umlCodeElement).toBeVisible();
-const umlCode = await umlCodeElement.textContent();
+  const umlCodeElement = page.locator('div.plantuml-contenido pre');
+  await expect(umlCodeElement).toBeVisible();
+  const umlCode = await umlCodeElement.textContent();
 
-// 7. Ir a https://www.planttext.com/
-const newPage = await context.newPage();
-await newPage.goto('https://www.planttext.com/');
+  // 7. Ir a https://www.planttext.com/
+  const newPage = await context.newPage();
+  await newPage.goto('https://www.planttext.com/');
 
-// 7.5. Cerrar anuncio emergente si existe
-const modals = newPage.locator('div.ui-dialog');
-const count = await modals.count();
+  // 7.5. Cerrar anuncio emergente si existe
+  const modals = newPage.locator('div.ui-dialog');
+  const count = await modals.count();
 
-for (let i = 0; i < count; i++) {
-  const modal = modals.nth(i);
-  const closeBtn = modal.locator('button[title="Close"]');
-  if (await closeBtn.isVisible()) {
-    await closeBtn.click();
-    break;
+  for (let i = 0; i < count; i++) {
+    const modal = modals.nth(i);
+    const closeBtn = modal.locator('button[title="Close"]');
+    if (await closeBtn.isVisible()) {
+      await closeBtn.click();
+      break;
+    }
   }
-}
 
-// 8. Esperar editor y pegar usando Ctrl+V
-const editor = newPage.locator('div.ace_content');
-await expect(editor).toBeVisible({ timeout: 10000 });
-await editor.click();
+  // 8. Esperar editor y pegar el código
+  const editor = newPage.locator('div.ace_content');
+  await expect(editor).toBeVisible({ timeout: 10000 });
+  await editor.click();
 
-// Copiar al portapapeles y pegar
-await newPage.evaluate((umlCode) => {
-  const editorInstance = (window as any).ace.edit("editor");
-  editorInstance.setValue(umlCode, -1);
-}, umlCode);
+  // Pegar directamente en el editor
+  await newPage.evaluate((umlCode) => {
+    const editorInstance = (window as any).ace.edit("editor");
+    editorInstance.setValue(umlCode, -1);
+  }, umlCode);
 
-// 9. Hacer clic en "Refresh"
-await newPage.locator('input#refresh-button2').click();
+  // 9. Hacer clic en "Refresh"
+  await newPage.locator('input#refresh-button2').click();
 
-// 10. Ver página durante 5 segundos
-await newPage.waitForTimeout(5000);
-
+  // 10. Ver página durante 5 segundos
+  await newPage.waitForTimeout(5000);
 });

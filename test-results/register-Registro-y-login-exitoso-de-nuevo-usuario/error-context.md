@@ -1,0 +1,43 @@
+# Page snapshot
+
+```yaml
+- navigation:
+  - link " DocuGen AI":
+    - /url: "#"
+  - button " Usuario"
+- heading " DocuGen AI - Generador Inteligente" [level=1]
+- paragraph: Elige el tipo de análisis que necesitas para tu proyecto
+- button " Documentación SRS Análisis automático de código"
+- button " Documento Personalizado Completar PDF con IA"
+- heading " Generación de Documentación SRS" [level=2]
+- paragraph: Sube tu proyecto completo y obtén documentación técnica automática
+- text: 
+- heading "Sube tu proyecto de código" [level=4]
+- paragraph: Arrastra múltiples archivos aquí o haz clic para seleccionar
+- text: 
+- heading "Sube tu proyecto completo" [level=4]
+- paragraph: Arrastra múltiples archivos aquí o haz clic para seleccionar
+- paragraph: "Soporta: .js, .py, .java, .cpp, .html, .css, .zip, .rar"
+- button " Seleccionar Archivos"
+- heading " Completar Documento Personalizado" [level=2]
+- paragraph: Sube tu documento PDF personalizado y archivos de código para que la IA lo complete automáticamente
+- heading " Documento PDF Personalizado" [level=5]
+- text: 
+- paragraph: Sube tu formato personalizado
+- button " Seleccionar PDF"
+- text: "Tipo de Documento:"
+- combobox "Tipo de Documento:":
+  - option "SRS (Software Requirements Specification)" [selected]
+  - option "Documento de Arquitectura"
+  - option "Documento de Diseño"
+  - option "Manual Técnico"
+  - option "Documentación de API"
+  - option "Otro"
+- heading " Archivos de Código" [level=5]
+- text: 
+- paragraph: Sube archivos o proyecto completo
+- button " Seleccionar Código"
+- button " Completar Documento con IA" [disabled]
+- button " Generar Solo Diagramas UML" [disabled]
+- button " Generar Diagramas Mermaid" [disabled]
+```

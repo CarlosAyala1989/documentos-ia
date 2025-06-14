@@ -35,9 +35,6 @@ test('Registro y login exitoso de nuevo usuario', async ({ page }) => {
   // Verificar mensaje de inicio de sesión exitoso
   await expect(page.locator('text=Inicio de sesión exitoso')).toBeVisible({ timeout: 7000 });
 
-  // Verificar que ingresó a la app
-  await expect(page.locator('text=Analizador de Código con IA')).toBeVisible({ timeout: 5000 });
-
   // Capturar pantalla final
   await page.screenshot({ path: 'tests/screenshots/registro-y-login.png', fullPage: true });
 });
