@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { usuariosService } = require('../services/db');
 
+// Middleware para verificar autenticación
+const requireAuth = (req, res, next) => {
+  if (req.session.user) {
+    next();
+  } else {
+    res.status(401).json({ error: 'No autenticado' });
+  }
+};
+
 // Registro de usuario
 router.post('/register', async (req, res) => {
   try {
@@ -140,13 +149,22 @@ router.get('/user', async (req, res) => {
   try {
     if (req.session.user) {
       console.log('Usuario autenticado desde sesión:', req.session.user.email);
-      return res.status(200).json({ user: req.session.user });
+      return res.status(200).json({ 
+        success: true,
+        user: req.session.user 
+      });
     }
     
-    return res.status(401).json({ error: 'No autenticado' });
+    return res.status(401).json({ 
+      success: false,
+      error: 'No autenticado' 
+    });
   } catch (error) {
     console.error('Error al verificar sesión:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ 
+      success: false,
+      error: 'Error interno del servidor' 
+    });
   }
 });
 
@@ -211,6 +229,77 @@ router.post('/reset-password', async (req, res) => {
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para actualizar perfil de usuario
+router.put('/update-profile', requireAuth, async (req, res) => {
+  try {
+    const { nombre, apellidos, correo_electronico, contrasena_actual, nueva_contrasena } = req.body;
+    const usuarioId = req.session.user.id;
+    
+    // Validaciones básicas
+    if (!nombre || !correo_electronico) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Nombre y correo electrónico son requeridos' 
+      });
+    }
+    
+    // Si se quiere cambiar la contraseña, verificar la actual
+    if (nueva_contrasena) {
+      if (!contrasena_actual) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Contraseña actual requerida para cambiar contraseña' 
+        });
+      }
+      
+      // Verificar contraseña actual
+      const usuarioActual = await usuariosService.obtenerUsuarioPorId(usuarioId);
+      if (!usuarioActual || usuarioActual.contrasena !== contrasena_actual) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Contraseña actual incorrecta' 
+        });
+      }
+    }
+    
+    // Preparar datos de actualización
+    const datosActualizacion = {
+      nombre,
+      apellidos,
+      correo_electronico
+    };
+    
+    // Agregar nueva contraseña si se proporcionó
+    if (nueva_contrasena) {
+      datosActualizacion.contrasena = nueva_contrasena;
+    }
+    
+    // Actualizar usuario
+    const usuarioActualizado = await usuariosService.actualizarUsuario(usuarioId, datosActualizacion);
+    
+    // Actualizar sesión
+    req.session.user = {
+      ...req.session.user,
+      nombre: usuarioActualizado.nombre,
+      apellidos: usuarioActualizado.apellidos,
+      correo_electronico: usuarioActualizado.correo_electronico
+    };
+    
+    res.json({ 
+      success: true, 
+      message: 'Perfil actualizado correctamente',
+      user: usuarioActualizado
+    });
+    
+  } catch (error) {
+    console.error('Error al actualizar perfil:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error interno del servidor' 
+    });
   }
 });
 

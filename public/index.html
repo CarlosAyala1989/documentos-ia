@@ -430,5 +430,116 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="js/main.js"></script>
+
+    <!-- Modal de Perfil de Usuario -->
+    <div class="modal fade" id="perfilModal" tabindex="-1" aria-labelledby="perfilModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="perfilModalLabel">
+                        <i class="fas fa-user-edit me-2"></i>
+                        Mi Perfil
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Información del Usuario -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <div class="profile-avatar mb-3">
+                                <i class="fas fa-user-circle fa-5x text-info"></i>
+                            </div>
+                            <h5 id="perfilNombreCompleto">Nombre Usuario</h5>
+                            <p class="text-muted" id="perfilEmail">usuario@email.com</p>
+                            <small class="text-muted">Miembro desde: <span id="perfilFechaRegistro">-</span></small>
+                        </div>
+                        <div class="col-md-8">
+                            <!-- Formulario de Edición -->
+                            <form id="perfilForm">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="perfilNombre" class="form-label">Nombre</label>
+                                        <input type="text" class="form-control" id="perfilNombre" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="perfilApellidos" class="form-label">Apellidos</label>
+                                        <input type="text" class="form-control" id="perfilApellidos">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="perfilCorreo" class="form-label">Correo Electrónico</label>
+                                    <input type="email" class="form-control" id="perfilCorreo" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="perfilContrasenaActual" class="form-label">Contraseña Actual</label>
+                                    <input type="password" class="form-control" id="perfilContrasenaActual" placeholder="Dejar vacío si no desea cambiar">
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="perfilNuevaContrasena" class="form-label">Nueva Contraseña</label>
+                                        <input type="password" class="form-control" id="perfilNuevaContrasena" placeholder="Opcional">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="perfilConfirmarContrasena" class="form-label">Confirmar Nueva Contraseña</label>
+                                        <input type="password" class="form-control" id="perfilConfirmarContrasena" placeholder="Opcional">
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Estadísticas del Usuario -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="fw-bold mb-3">Estadísticas de Actividad</h6>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-primary text-white">
+                                <div class="card-body py-3">
+                                    <i class="fas fa-project-diagram fa-2x mb-2"></i>
+                                    <h5 id="perfilTotalProyectos">0</h5>
+                                    <small>Proyectos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-success text-white">
+                                <div class="card-body py-3">
+                                    <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                    <h5 id="perfilTotalDocumentos">0</h5>
+                                    <small>Documentos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-info text-white">
+                                <div class="card-body py-3">
+                                    <i class="fas fa-calendar fa-2x mb-2"></i>
+                                    <h5 id="perfilUltimoAcceso">-</h5>
+                                    <small>Último Acceso</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-warning text-white">
+                                <div class="card-body py-3">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h5 id="perfilTiempoActivo">-</h5>
+                                    <small>Tiempo Activo</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-info" id="guardarPerfil">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 </body>
 </html>

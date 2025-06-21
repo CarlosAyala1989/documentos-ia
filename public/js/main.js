@@ -1536,6 +1536,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (oldLogoutBtn) {
         oldLogoutBtn.addEventListener('click', logout);
     }
+    document.getElementById('perfilBtn').addEventListener('click', mostrarPerfil);
+    document.getElementById('guardarPerfil').addEventListener('click', guardarCambiosPerfil);
 });
 
 // Cargar información del usuario para mostrar en el dropdown
@@ -1918,4 +1920,200 @@ function mostrarError(mensaje) {
             alertDiv.parentNode.removeChild(alertDiv);
         }
     }, 5000);
+}
+
+// Mostrar modal de perfil
+async function mostrarPerfil() {
+    const modal = new bootstrap.Modal(document.getElementById('perfilModal'));
+    modal.show();
+    
+    // Cargar datos del perfil
+    await cargarDatosPerfil();
+}
+
+// Cargar datos del perfil desde el servidor
+async function cargarDatosPerfil() {
+    try {
+        const response = await fetch('/api/auth/user');
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            perfilData = data.user;
+            mostrarDatosPerfil(data.user);
+            
+            // Cargar estadísticas del historial si están disponibles
+            if (historialData && historialData.estadisticas) {
+                mostrarEstadisticasPerfil(historialData.estadisticas);
+            } else {
+                // Cargar estadísticas por separado
+                await cargarEstadisticasPerfil();
+            }
+        } else {
+            throw new Error(data.error || 'Error al cargar datos del usuario');
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar perfil:', error);
+        mostrarNotificacion('Error al cargar el perfil: ' + error.message, 'danger');
+    }
+}
+
+// Mostrar datos del perfil en el modal
+function mostrarDatosPerfil(usuario) {
+    // Información básica
+    document.getElementById('perfilNombreCompleto').textContent = 
+        usuario.nombre_completo || `${usuario.nombre || ''} ${usuario.apellidos || ''}`.trim() || 'Usuario';
+    document.getElementById('perfilEmail').textContent = 
+        usuario.correo_electronico || 'usuario@email.com';
+    
+    // Fecha de registro
+    const fechaRegistro = usuario.creado_en ? 
+        new Date(usuario.creado_en).toLocaleDateString('es-ES') : '-';
+    document.getElementById('perfilFechaRegistro').textContent = fechaRegistro;
+    
+    // Campos del formulario
+    document.getElementById('perfilNombre').value = usuario.nombre || '';
+    document.getElementById('perfilApellidos').value = usuario.apellidos || '';
+    document.getElementById('perfilCorreo').value = usuario.correo_electronico || '';
+    
+    // Limpiar campos de contraseña
+    document.getElementById('perfilContrasenaActual').value = '';
+    document.getElementById('perfilNuevaContrasena').value = '';
+    document.getElementById('perfilConfirmarContrasena').value = '';
+}
+
+// Cargar estadísticas para el perfil
+async function cargarEstadisticasPerfil() {
+    try {
+        const response = await fetch('/api/proyectos/historial');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.estadisticas) {
+                mostrarEstadisticasPerfil(data.estadisticas);
+            }
+        }
+    } catch (error) {
+        console.error('Error al cargar estadísticas del perfil:', error);
+    }
+}
+
+// Mostrar estadísticas en el perfil
+function mostrarEstadisticasPerfil(estadisticas) {
+    document.getElementById('perfilTotalProyectos').textContent = 
+        estadisticas.total_proyectos || 0;
+    document.getElementById('perfilTotalDocumentos').textContent = 
+        estadisticas.total_documentos || 0;
+    
+    // Último acceso
+    const ultimoAcceso = perfilData && perfilData.ultimo_inicio_sesion_en ? 
+        new Date(perfilData.ultimo_inicio_sesion_en).toLocaleDateString('es-ES') : '-';
+    document.getElementById('perfilUltimoAcceso').textContent = ultimoAcceso;
+    
+    // Tiempo activo (calculado desde la fecha de registro)
+    let tiempoActivo = '-';
+    if (perfilData && perfilData.creado_en) {
+        const fechaRegistro = new Date(perfilData.creado_en);
+        const ahora = new Date();
+        const diasActivo = Math.floor((ahora - fechaRegistro) / (1000 * 60 * 60 * 24));
+        tiempoActivo = `${diasActivo} días`;
+    }
+    document.getElementById('perfilTiempoActivo').textContent = tiempoActivo;
+}
+
+// Guardar cambios del perfil
+async function guardarCambiosPerfil() {
+    try {
+        // Obtener datos del formulario
+        const nombre = document.getElementById('perfilNombre').value.trim();
+        const apellidos = document.getElementById('perfilApellidos').value.trim();
+        const correo = document.getElementById('perfilCorreo').value.trim();
+        const contrasenaActual = document.getElementById('perfilContrasenaActual').value;
+        const nuevaContrasena = document.getElementById('perfilNuevaContrasena').value;
+        const confirmarContrasena = document.getElementById('perfilConfirmarContrasena').value;
+        
+        // Validaciones
+        if (!nombre) {
+            mostrarNotificacion('El nombre es requerido', 'warning');
+            return;
+        }
+        
+        if (!correo) {
+            mostrarNotificacion('El correo electrónico es requerido', 'warning');
+            return;
+        }
+        
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(correo)) {
+            mostrarNotificacion('Por favor ingresa un correo electrónico válido', 'warning');
+            return;
+        }
+        
+        // Validar contraseñas si se quiere cambiar
+        if (nuevaContrasena || confirmarContrasena) {
+            if (!contrasenaActual) {
+                mostrarNotificacion('Debes ingresar tu contraseña actual para cambiarla', 'warning');
+                return;
+            }
+            
+            if (nuevaContrasena !== confirmarContrasena) {
+                mostrarNotificacion('Las nuevas contraseñas no coinciden', 'warning');
+                return;
+            }
+            
+            if (nuevaContrasena.length < 6) {
+                mostrarNotificacion('La nueva contraseña debe tener al menos 6 caracteres', 'warning');
+                return;
+            }
+        }
+        
+        // Preparar datos para enviar
+        const datosActualizacion = {
+            nombre,
+            apellidos,
+            correo_electronico: correo
+        };
+        
+        // Agregar contraseñas si se van a cambiar
+        if (nuevaContrasena) {
+            datosActualizacion.contrasena_actual = contrasenaActual;
+            datosActualizacion.nueva_contrasena = nuevaContrasena;
+        }
+        
+        // Enviar actualización al servidor
+        const response = await fetch('/api/auth/update-profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(datosActualizacion)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacion('Perfil actualizado correctamente', 'success');
+            
+            // Actualizar información en el dropdown
+            await cargarInfoUsuario();
+            
+            // Recargar datos del perfil
+            await cargarDatosPerfil();
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('perfilModal'));
+            modal.hide();
+        } else {
+            throw new Error(data.error || 'Error al actualizar el perfil');
+        }
+        
+    } catch (error) {
+        console.error('Error al guardar perfil:', error);
+        mostrarNotificacion('Error al guardar los cambios: ' + error.message, 'danger');
+    }
 }
