@@ -48,10 +48,12 @@ app.use((req, res, next) => {
 // Importar rutas
 const authRoutes = require('./routes/auth');
 const proyectosRoutes = require('./routes/proyectos');
+const conversacionesRoutes = require('./routes/conversaciones');
 
 // Usar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/proyectos', proyectosRoutes);
+app.use('/api/conversaciones', conversacionesRoutes);
 
 // Ruta para la página de inicio de sesión
 app.get('/login', (req, res) => {

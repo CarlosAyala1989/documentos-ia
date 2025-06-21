@@ -459,12 +459,222 @@ const documentosService = {
 };
 
 
+const conversacionesService = {
+  // Crear una nueva conversación
+  async crearConversacion(conversacionData) {
+    try {
+      const dataWithTimestamps = {
+        ...conversacionData,
+        creado_en: new Date().toISOString(),
+        actualizado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('conversaciones')
+        .insert([dataWithTimestamps])
+        .select();
+        
+      if (error) {
+        console.error('Error al crear conversación en BD:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en crearConversacion:', error);
+      throw error;
+    }
+  },
+  
+  // Obtener conversaciones por usuario
+  async obtenerConversacionesPorUsuario(usuarioId) {
+    try {
+      const { data, error } = await supabase
+        .from('conversaciones')
+        .select(`
+          *,
+          mensajes_count:mensajes_conversacion(count)
+        `)
+        .eq('usuario_id', usuarioId)
+        .order('actualizado_en', { ascending: false });
+        
+      if (error) {
+        console.error('Error al obtener conversaciones:', error);
+        throw error;
+      }
+      
+      // Procesar datos para agregar conteo de mensajes
+      return data.map(conversacion => ({
+        ...conversacion,
+        total_mensajes: conversacion.mensajes_count?.[0]?.count || 0
+      }));
+    } catch (error) {
+      console.error('Error en obtenerConversacionesPorUsuario:', error);
+      throw error;
+    }
+  },
+  
+  // Obtener conversación por ID
+  async obtenerConversacionPorId(id) {
+    try {
+      const { data, error } = await supabase
+        .from('conversaciones')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error al obtener conversación:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerConversacionPorId:', error);
+      throw error;
+    }
+  },
+  
+  // Actualizar conversación
+  async actualizarConversacion(id, updateData) {
+    try {
+      const dataWithTimestamp = {
+        ...updateData,
+        actualizado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('conversaciones')
+        .update(dataWithTimestamp)
+        .eq('id', id)
+        .select();
+        
+      if (error) {
+        console.error('Error al actualizar conversación:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en actualizarConversacion:', error);
+      throw error;
+    }
+  },
+  
+  // Obtener estadísticas de conversaciones del usuario
+  async obtenerEstadisticasUsuario(usuarioId) {
+    try {
+      // Total de conversaciones
+      const { count: totalConversaciones } = await supabase
+        .from('conversaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', usuarioId);
+      
+      // Conversaciones activas
+      const { count: conversacionesActivas } = await supabase
+        .from('conversaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', usuarioId)
+        .eq('estado', 'activa');
+      
+      // Conversaciones de hoy
+      const hoy = new Date().toISOString().split('T')[0];
+      const { count: conversacionesHoy } = await supabase
+        .from('conversaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', usuarioId)
+        .gte('creado_en', hoy + 'T00:00:00.000Z')
+        .lt('creado_en', hoy + 'T23:59:59.999Z');
+      
+      // Total de mensajes
+      const { count: totalMensajes } = await supabase
+        .from('mensajes_conversacion')
+        .select('*', { count: 'exact', head: true })
+        .eq('usuario_id', usuarioId);
+      
+      return {
+        total_conversaciones: totalConversaciones || 0,
+        conversaciones_activas: conversacionesActivas || 0,
+        conversaciones_hoy: conversacionesHoy || 0,
+        total_mensajes: totalMensajes || 0
+      };
+    } catch (error) {
+      console.error('Error en obtenerEstadisticasUsuario:', error);
+      throw error;
+    }
+  }
+};
 
-
+const mensajesService = {
+  // Crear un nuevo mensaje
+  async crearMensaje(mensajeData) {
+    try {
+      const dataWithTimestamp = {
+        ...mensajeData,
+        creado_en: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('mensajes_conversacion')
+        .insert([dataWithTimestamp])
+        .select();
+        
+      if (error) {
+        console.error('Error al crear mensaje en BD:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en crearMensaje:', error);
+      throw error;
+    }
+  },
+  
+  // Obtener mensajes por conversación
+  async obtenerMensajesPorConversacion(conversacionId) {
+    try {
+      const { data, error } = await supabase
+        .from('mensajes_conversacion')
+        .select('*')
+        .eq('conversacion_id', conversacionId)
+        .order('orden_en_conversacion', { ascending: true });
+        
+      if (error) {
+        console.error('Error al obtener mensajes:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerMensajesPorConversacion:', error);
+      throw error;
+    }
+  },
+  
+  // Obtener siguiente número de orden para una conversación
+  async obtenerSiguienteOrden(conversacionId) {
+    try {
+      const { data, error } = await supabase
+        .from('mensajes_conversacion')
+        .select('orden_en_conversacion')
+        .eq('conversacion_id', conversacionId)
+        .order('orden_en_conversacion', { ascending: false })
+        .limit(1);
+        
+      if (error) {
+        console.error('Error al obtener siguiente orden:', error);
+        throw error;
+      }
+      
+      return data.length > 0 ? data[0].orden_en_conversacion + 1 : 1;
+    } catch (error) {
+      console.error('Error en obtenerSiguienteOrden:', error);
+      throw error;
+    }
+  }
+};
 
 module.exports = {
   usuariosService,
   proyectosService,
-  documentosService
+  documentosService,
+  conversacionesService,
+  mensajesService
 };
 

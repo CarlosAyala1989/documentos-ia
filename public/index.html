@@ -38,6 +38,12 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item" href="#" id="conversacionesBtn">
+                                <i class="fas fa-comments me-2"></i>
+                                Historial de Conversaciones
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item" href="#" id="perfilBtn">
                                 <i class="fas fa-user-edit me-2"></i>
                                 Mi Perfil
@@ -540,6 +546,119 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- Modal de Historial de Conversaciones -->
+    <div class="modal fade" id="conversacionesModal" tabindex="-1" aria-labelledby="conversacionesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="conversacionesModalLabel">
+                        <i class="fas fa-comments me-2"></i>
+                        Historial de Conversaciones
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Estadísticas de conversaciones -->
+                    <div class="row mb-4" id="estadisticasConversaciones">
+                        <div class="col-md-3">
+                            <div class="card text-center bg-success text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-comments fa-2x mb-2"></i>
+                                    <h4 id="totalConversaciones">0</h4>
+                                    <small>Total Conversaciones</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-info text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-comment fa-2x mb-2"></i>
+                                    <h4 id="totalMensajes">0</h4>
+                                    <small>Total Mensajes</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-primary text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                                    <h4 id="conversacionesHoy">0</h4>
+                                    <small>Hoy</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center bg-warning text-white">
+                                <div class="card-body">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h4 id="conversacionesActivas">0</h4>
+                                    <small>Activas</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botón para nueva conversación -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-success" id="nuevaConversacionBtn">
+                            <i class="fas fa-plus me-2"></i>Nueva Conversación
+                        </button>
+                    </div>
+
+                    <!-- Lista de conversaciones -->
+                    <div id="loadingConversaciones" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando conversaciones...</p>
+                    </div>
+                    <div id="conversacionesList" class="row"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-success" id="actualizarConversaciones">
+                        <i class="fas fa-sync-alt me-2"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver conversación completa -->
+    <div class="modal fade" id="conversacionModal" tabindex="-1" aria-labelledby="conversacionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="conversacionModalLabel">
+                        <i class="fas fa-comment-dots me-2"></i>
+                        <span id="conversacionTitulo">Conversación</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="mensajesConversacion" style="max-height: 60vh; overflow-y: auto;"></div>
+                    
+                    <!-- Área para nueva consulta -->
+                    <div class="mt-3 border-top pt-3">
+                        <h6><i class="fas fa-plus-circle me-2"></i>Agregar nueva consulta</h6>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="nuevaConsulta" rows="3" placeholder="Escribe tu nueva consulta aquí..."></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="enviarConsulta">
+                            <i class="fas fa-paper-plane me-2"></i>Enviar Consulta
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-info" id="continuarConversacion">
+                        <i class="fas fa-play me-2"></i>Continuar en Principal
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 </html>

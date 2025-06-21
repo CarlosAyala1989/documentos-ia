@@ -11,6 +11,11 @@ const resultados = document.getElementById('resultados');
 let currentRequest = null;
 let progressInterval = null;
 
+// Variables globales para conversaciones
+let conversacionesData = null;
+let conversacionActual = null;
+let conversacionActualId = null;
+
 // Variables para el sistema de slides
 let currentSlide = 0;
 const totalSlides = 2;
@@ -342,26 +347,32 @@ function mostrarNotificacion(mensaje, tipo = 'info') {
 
 // Función para analizar archivo individual
 async function analizarArchivoIndividual() {
-    // NO ocultar uploadedFiles para que sigan visibles
     mostrarOverlayCarga();
     
     try {
         console.log('🔍 Enviando archivo a la IA para análisis...');
         
-        // Crear AbortController para poder cancelar
         const controller = new AbortController();
         currentRequest = controller;
+        
+        // Preparar datos para el análisis
+        const requestData = {
+            codigo: uploadedFile.content,
+            nombreArchivo: uploadedFile.name,
+            lenguajeProgramacion: uploadedFile.extension
+        };
+        
+        // Si hay una conversación activa, incluir su ID
+        if (conversacionActualId) {
+            requestData.conversacion_id = conversacionActualId;
+        }
         
         const response = await fetch('/api/proyectos/analizar-codigo', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                codigo: uploadedFile.content,
-                nombreArchivo: uploadedFile.name,
-                lenguajeProgramacion: uploadedFile.extension
-            }),
+            body: JSON.stringify(requestData),
             signal: controller.signal
         });
         
@@ -388,8 +399,6 @@ async function analizarArchivoIndividual() {
         
         console.error('❌ Error en análisis:', error);
         ocultarOverlayCarga();
-        
-        // Mostrar error sin ocultar archivos
         mostrarNotificacion('Error al analizar el código: ' + error.message, 'error');
     } finally {
         currentRequest = null;
@@ -408,6 +417,11 @@ async function analizarProyecto() {
         selectedFiles.forEach((file) => {
             formData.append('archivos', file);
         });
+        
+        // Si hay una conversación activa, incluir su ID
+        if (conversacionActualId) {
+            formData.append('conversacion_id', conversacionActualId);
+        }
         
         // Crear AbortController para poder cancelar
         const controller = new AbortController();
@@ -1058,6 +1072,11 @@ async function completarDocumentoPersonalizado() {
         const tipoDocumento = document.getElementById('tipoDocumento').value;
         formData.append('tipo_documento', tipoDocumento);
         
+        // Si hay una conversación activa, incluir su ID
+        if (conversacionActualId) {
+            formData.append('conversacion_id', conversacionActualId);
+        }
+        
         const response = await fetch('/api/proyectos/completar-documento-personalizado', {
             method: 'POST',
             body: formData
@@ -1551,6 +1570,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('perfilBtn').addEventListener('click', mostrarPerfil);
     document.getElementById('guardarPerfil').addEventListener('click', guardarCambiosPerfil);
+
+     // Event listeners para conversaciones
+    document.getElementById('conversacionesBtn').addEventListener('click', mostrarConversaciones);
+    document.getElementById('actualizarConversaciones').addEventListener('click', cargarConversaciones);
+    document.getElementById('nuevaConversacionBtn').addEventListener('click', crearNuevaConversacion);
+    document.getElementById('enviarConsulta').addEventListener('click', enviarNuevaConsulta);
+    document.getElementById('continuarConversacion').addEventListener('click', continuarConversacionEnPrincipal);
 });
 
 // Cargar información del usuario para mostrar en el dropdown
@@ -1569,6 +1595,394 @@ async function cargarInfoUsuario() {
         }
     } catch (error) {
         console.error('Error al cargar información del usuario:', error);
+    }
+}
+
+async function mostrarConversaciones() {
+    const modal = new bootstrap.Modal(document.getElementById('conversacionesModal'));
+    modal.show();
+    
+    // Cargar datos de conversaciones
+    await cargarConversaciones();
+}
+
+// Cargar conversaciones desde el servidor
+async function cargarConversaciones() {
+    const loadingElement = document.getElementById('loadingConversaciones');
+    loadingElement.style.display = 'block';
+    
+    try {
+        const response = await fetch('/api/conversaciones/historial');
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            conversacionesData = data;
+            mostrarEstadisticasConversaciones(data.estadisticas);
+            mostrarListaConversaciones(data.conversaciones);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar conversaciones:', error);
+        mostrarError('Error al cargar las conversaciones: ' + error.message);
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+// Mostrar estadísticas de conversaciones
+function mostrarEstadisticasConversaciones(estadisticas) {
+    document.getElementById('totalConversaciones').textContent = estadisticas.total_conversaciones || 0;
+    document.getElementById('totalMensajes').textContent = estadisticas.total_mensajes || 0;
+    document.getElementById('conversacionesHoy').textContent = estadisticas.conversaciones_hoy || 0;
+    document.getElementById('conversacionesActivas').textContent = estadisticas.conversaciones_activas || 0;
+}
+
+// Mostrar lista de conversaciones
+function mostrarListaConversaciones(conversaciones) {
+    const container = document.getElementById('conversacionesList');
+    container.innerHTML = '';
+    
+    if (!conversaciones || conversaciones.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No tienes conversaciones aún. ¡Crea tu primera conversación!
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    conversaciones.forEach(conversacion => {
+        const estadoBadge = obtenerBadgeEstadoConversacion(conversacion.estado);
+        const fechaCreacion = new Date(conversacion.creado_en).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const fechaActualizacion = new Date(conversacion.actualizado_en).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const card = document.createElement('div');
+        card.className = 'col-md-6 col-lg-4 mb-3';
+        card.innerHTML = `
+            <div class="card h-100 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-comment-dots text-success me-2"></i>
+                        ${conversacion.titulo}
+                    </h6>
+                    ${estadoBadge}
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted small">
+                        ${conversacion.descripcion || 'Sin descripción'}
+                    </p>
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            <i class="fas fa-comments me-1"></i>
+                            ${conversacion.total_mensajes || 0} mensajes
+                        </small>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            Creada: ${fechaCreacion}
+                        </small>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Actualizada: ${fechaActualizacion}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group w-100" role="group">
+                        <button class="btn btn-outline-info btn-sm" onclick="verConversacion(${conversacion.id})">
+                            <i class="fas fa-eye me-1"></i>Ver
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="continuarConversacion(${conversacion.id})">
+                            <i class="fas fa-play me-1"></i>Continuar
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="archivarConversacion(${conversacion.id})">
+                            <i class="fas fa-archive me-1"></i>Archivar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// Obtener badge de estado de conversación
+function obtenerBadgeEstadoConversacion(estado) {
+    const badges = {
+        'activa': '<span class="badge bg-success">Activa</span>',
+        'archivada': '<span class="badge bg-warning">Archivada</span>',
+        'eliminada': '<span class="badge bg-danger">Eliminada</span>'
+    };
+    return badges[estado] || '<span class="badge bg-secondary">Desconocido</span>';
+}
+
+// Crear nueva conversación
+async function crearNuevaConversacion() {
+    try {
+        const titulo = prompt('Ingresa un título para la nueva conversación:');
+        if (!titulo) return;
+        
+        const descripcion = prompt('Ingresa una descripción (opcional):') || '';
+        
+        const response = await fetch('/api/conversaciones/crear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo: titulo,
+                descripcion: descripcion
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacion('Conversación creada exitosamente', 'success');
+            await cargarConversaciones(); // Recargar lista
+            
+            // Preguntar si quiere continuar en la página principal
+            if (confirm('¿Quieres continuar esta conversación en la página principal?')) {
+                conversacionActualId = data.conversacion.id;
+                // Cerrar modal de conversaciones
+                const modal = bootstrap.Modal.getInstance(document.getElementById('conversacionesModal'));
+                modal.hide();
+                
+                // Mostrar indicador de conversación activa
+                mostrarIndicadorConversacionActiva(data.conversacion);
+            }
+        } else {
+            throw new Error(data.error || 'Error al crear conversación');
+        }
+        
+    } catch (error) {
+        console.error('Error al crear conversación:', error);
+        mostrarError('Error al crear la conversación: ' + error.message);
+    }
+}
+
+// Ver conversación completa
+async function verConversacion(conversacionId) {
+    try {
+        const response = await fetch(`/api/conversaciones/${conversacionId}`);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            conversacionActual = data.conversacion;
+            mostrarModalConversacion(data.conversacion, data.mensajes);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar conversación:', error);
+        mostrarError('Error al cargar la conversación: ' + error.message);
+    }
+}
+
+// Mostrar modal de conversación individual
+function mostrarModalConversacion(conversacion, mensajes) {
+    document.getElementById('conversacionTitulo').textContent = conversacion.titulo;
+    
+    const mensajesContainer = document.getElementById('mensajesConversacion');
+    mensajesContainer.innerHTML = '';
+    
+    if (!mensajes || mensajes.length === 0) {
+        mensajesContainer.innerHTML = `
+            <div class="alert alert-info text-center">
+                <i class="fas fa-info-circle me-2"></i>
+                Esta conversación no tiene mensajes aún.
+            </div>
+        `;
+    } else {
+        mensajes.forEach((mensaje, index) => {
+            const fechaMensaje = new Date(mensaje.creado_en).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const tipoIcon = mensaje.tipo_mensaje === 'consulta' ? 'fa-user' : 'fa-robot';
+            const tipoColor = mensaje.tipo_mensaje === 'consulta' ? 'primary' : 'success';
+            
+            const mensajeDiv = document.createElement('div');
+            mensajeDiv.className = `mb-3 p-3 border rounded bg-light`;
+            mensajeDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0 text-${tipoColor}">
+                        <i class="fas ${tipoIcon} me-2"></i>
+                        ${mensaje.tipo_mensaje === 'consulta' ? 'Consulta' : 'Respuesta'} #${index + 1}
+                    </h6>
+                    <small class="text-muted">${fechaMensaje}</small>
+                </div>
+                <div style="white-space: pre-wrap;">${mensaje.contenido_mensaje}</div>
+            `;
+            mensajesContainer.appendChild(mensajeDiv);
+        });
+    }
+    
+    // Limpiar textarea
+    document.getElementById('nuevaConsulta').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('conversacionModal'));
+    modal.show();
+}
+
+// Enviar nueva consulta a la conversación
+async function enviarNuevaConsulta() {
+    if (!conversacionActual) {
+        mostrarError('No hay conversación seleccionada');
+        return;
+    }
+    
+    const consulta = document.getElementById('nuevaConsulta').value.trim();
+    if (!consulta) {
+        mostrarError('Por favor escribe una consulta');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/conversaciones/mensaje', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                conversacion_id: conversacionActual.id,
+                contenido_mensaje: consulta,
+                tipo_mensaje: 'consulta'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacion('Consulta enviada exitosamente', 'success');
+            // Recargar la conversación
+            await verConversacion(conversacionActual.id);
+        } else {
+            throw new Error(data.error || 'Error al enviar consulta');
+        }
+        
+    } catch (error) {
+        console.error('Error al enviar consulta:', error);
+        mostrarError('Error al enviar la consulta: ' + error.message);
+    }
+}
+
+// Continuar conversación en página principal
+function continuarConversacion(conversacionId) {
+    conversacionActualId = conversacionId;
+    
+    // Cerrar modal de conversaciones
+    const modal = bootstrap.Modal.getInstance(document.getElementById('conversacionesModal'));
+    modal.hide();
+    
+    // Buscar la conversación en los datos
+    const conversacion = conversacionesData.conversaciones.find(c => c.id === conversacionId);
+    if (conversacion) {
+        mostrarIndicadorConversacionActiva(conversacion);
+    }
+    
+    mostrarNotificacion('Conversación activada. Tus próximas consultas se agregarán a esta conversación.', 'info');
+}
+
+// Continuar conversación desde modal individual
+function continuarConversacionEnPrincipal() {
+    if (conversacionActual) {
+        continuarConversacion(conversacionActual.id);
+        
+        // Cerrar modal de conversación individual
+        const modal = bootstrap.Modal.getInstance(document.getElementById('conversacionModal'));
+        modal.hide();
+    }
+}
+
+// Mostrar indicador de conversación activa
+function mostrarIndicadorConversacionActiva(conversacion) {
+    // Crear o actualizar indicador en la interfaz
+    let indicador = document.getElementById('conversacionActivaIndicador');
+    if (!indicador) {
+        indicador = document.createElement('div');
+        indicador.id = 'conversacionActivaIndicador';
+        indicador.className = 'alert alert-info alert-dismissible fade show position-fixed';
+        indicador.style.cssText = 'top: 100px; right: 20px; z-index: 1050; max-width: 350px;';
+        document.body.appendChild(indicador);
+    }
+    
+    indicador.innerHTML = `
+        <i class="fas fa-comment-dots me-2"></i>
+        <strong>Conversación activa:</strong> ${conversacion.titulo}
+        <button type="button" class="btn-close" onclick="desactivarConversacion()"></button>
+    `;
+}
+
+// Desactivar conversación actual
+function desactivarConversacion() {
+    conversacionActualId = null;
+    const indicador = document.getElementById('conversacionActivaIndicador');
+    if (indicador) {
+        indicador.remove();
+    }
+    mostrarNotificacion('Conversación desactivada', 'info');
+}
+
+// Archivar conversación
+async function archivarConversacion(conversacionId) {
+    if (!confirm('¿Estás seguro de que quieres archivar esta conversación?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/conversaciones/${conversacionId}/archivar`, {
+            method: 'PUT'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacion('Conversación archivada exitosamente', 'success');
+            await cargarConversaciones(); // Recargar lista
+        } else {
+            throw new Error(data.error || 'Error al archivar conversación');
+        }
+        
+    } catch (error) {
+        console.error('Error al archivar conversación:', error);
+        mostrarError('Error al archivar la conversación: ' + error.message);
     }
 }
 

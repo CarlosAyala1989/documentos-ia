@@ -29,7 +29,7 @@ const requireAuth = (req, res, next) => {
 // Ruta principal: Analizar código con IA (MODIFICADA)
 router.post('/analizar-codigo', requireAuth, async (req, res) => {
   try {
-    const { codigo, nombreArchivo, lenguajeProgramacion, nombreProyecto, descripcionProyecto } = req.body;
+    const { codigo, nombreArchivo, lenguajeProgramacion, nombreProyecto, descripcionProyecto, conversacion_id } = req.body;
     const usuarioId = req.session.user.id;
     
     // Validar datos de entrada
@@ -96,7 +96,60 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
       const documentoCreado = await documentosService.crearDocumento(documentoData);
       console.log(`📄 Documento creado en BD con ID: ${documentoCreado.id}`);
       
-      // 5. Actualizar información del usuario (último análisis)
+      // 5. Si hay una conversación activa, crear mensajes
+      if (conversacion_id) {
+        try {
+          // Importar servicios de conversaciones
+          const { conversacionesService, mensajesService } = require('../services/db');
+          
+          // Verificar que la conversación pertenece al usuario
+          const conversacion = await conversacionesService.obtenerConversacionPorId(conversacion_id);
+          
+          if (conversacion && conversacion.usuario_id === usuarioId) {
+            // Crear mensaje de consulta (lo que envió el usuario)
+            const siguienteOrdenConsulta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+            
+            const mensajeConsulta = {
+              conversacion_id: conversacion_id,
+              usuario_id: usuarioId,
+              proyecto_codigo_id: proyectoCreado.id,
+              documento_generado_id: documentoCreado.id,
+              tipo_mensaje: 'consulta',
+              contenido_mensaje: `Análisis solicitado del archivo: ${nombreArchivo}\n\nCódigo analizado:\n\`\`\`${resultado.lenguaje_detectado || lenguajeProgramacion}\n${codigo.substring(0, 500)}${codigo.length > 500 ? '...' : ''}\n\`\`\``,
+              orden_en_conversacion: siguienteOrdenConsulta
+            };
+            
+            await mensajesService.crearMensaje(mensajeConsulta);
+            
+            // Crear mensaje de respuesta (el análisis de la IA)
+            const siguienteOrdenRespuesta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+            
+            const mensajeRespuesta = {
+              conversacion_id: conversacion_id,
+              usuario_id: usuarioId,
+              proyecto_codigo_id: proyectoCreado.id,
+              documento_generado_id: documentoCreado.id,
+              tipo_mensaje: 'consulta',
+              contenido_mensaje: resultado.analisis,
+              orden_en_conversacion: siguienteOrdenRespuesta
+            };
+            
+            await mensajesService.crearMensaje(mensajeRespuesta);
+            
+            // Actualizar fecha de última actualización de la conversación
+            await conversacionesService.actualizarConversacion(conversacion_id, {
+              actualizado_en: new Date().toISOString()
+            });
+            
+            console.log(`💬 Mensajes guardados en conversación ${conversacion_id}`);
+          }
+        } catch (conversacionError) {
+          console.error('❌ Error al guardar mensajes en conversación:', conversacionError);
+          // No fallar el análisis por errores de conversación
+        }
+      }
+      
+      // 6. Actualizar información del usuario (último análisis)
       await usuariosService.actualizarInformacionAdicional(usuarioId, {
         ultimo_inicio_sesion_en: new Date().toISOString()
       });
@@ -134,25 +187,25 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
 router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), async (req, res) => {
     try {
         const archivos = req.files;
-        const { nombreProyecto, descripcionProyecto } = req.body;
+        const { nombreProyecto, descripcionProyecto, conversacion_id } = req.body;
         const usuarioId = req.session.user.id;
-        
+
         if (!archivos || archivos.length === 0) {
             return res.status(400).json({ 
                 error: 'No se recibieron archivos para analizar' 
             });
         }
-        
+
         console.log(`🔍 Usuario ${req.session.user.email} analizando proyecto con ${archivos.length} archivos`);
-        
+
         // 1. Procesar archivos
         let todosLosArchivos = [];
-        
+
         for (const archivo of archivos) {
             if (archivo.mimetype === 'application/zip' || archivo.originalname.endsWith('.zip')) {
                 const zip = new AdmZip(archivo.buffer);
                 const zipEntries = zip.getEntries();
-                
+
                 zipEntries.forEach(entry => {
                     if (!entry.isDirectory && esArchivoValido(entry.entryName)) {
                         todosLosArchivos.push({
@@ -170,21 +223,21 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
                 });
             }
         }
-        
+
         if (todosLosArchivos.length === 0) {
             return res.status(400).json({ 
                 error: 'No se encontraron archivos válidos para analizar' 
             });
         }
-        
+
         // 2. Detectar lenguajes principales
         const lenguajesDetectados = [...new Set(todosLosArchivos.map(archivo => 
             geminiService.detectarLenguaje(archivo.nombre, archivo.contenido)
         ))];
-        
+
         // 3. Crear proyecto en la base de datos
         const analisisProyecto = crearAnalisisProyecto(todosLosArchivos);
-        
+
         const proyectoData = {
             usuario_id: usuarioId,
             nombre_proyecto: nombreProyecto || `Proyecto ${new Date().toISOString().split('T')[0]}`,
@@ -193,14 +246,14 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
             contenido_codigo: analisisProyecto,
             estado_procesamiento: 'procesando'
         };
-        
+
         const proyectoCreado = await proyectosService.crearProyecto(proyectoData);
         console.log(`📊 Proyecto creado en BD con ID: ${proyectoCreado.id}`);
-        
+
         try {
             // 4. Generar documentación SRS con Gemini
             const resultadoSRS = await geminiService.generarDocumentacionSRS(analisisProyecto);
-            
+
             if (!resultadoSRS.success) {
                 await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
                 console.error('❌ Error al generar SRS:', resultadoSRS.error);
@@ -209,23 +262,25 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
                     detalle: resultadoSRS.error 
                 });
             }
-            
+
+            const documentacionSRS = resultadoSRS.contenido;
+
             // 5. Calcular estadísticas del proyecto
             const estadisticasTotales = calcularEstadisticasProyecto(todosLosArchivos);
-            
+
             // 6. Actualizar proyecto con resultados
             await proyectosService.actualizarProyecto(proyectoCreado.id, {
                 lenguaje_programacion: lenguajesDetectados.join(', '),
                 estado_procesamiento: 'completado'
             });
-            
+
             // 7. Crear documento SRS generado
             const documentoData = {
                 proyecto_codigo_id: proyectoCreado.id,
                 usuario_id: usuarioId,
                 tipo_documento: 'SRS (Software Requirements Specification)',
                 formato_salida: 'markdown',
-                contenido_documento: resultadoSRS.contenido,
+                contenido_documento: documentacionSRS,
                 parametros_generacion_json: JSON.stringify({
                     archivos_procesados: todosLosArchivos.length,
                     lenguajes_detectados: lenguajesDetectados,
@@ -233,34 +288,80 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
                     api_key_usada: resultadoSRS.api_key_usada
                 })
             };
-            
+
             const documentoCreado = await documentosService.crearDocumento(documentoData);
             console.log(`📄 Documento SRS creado en BD con ID: ${documentoCreado.id}`);
-            
-            // 8. Actualizar información del usuario
+
+            // 8. Guardar mensajes en conversación (si aplica)
+            if (conversacion_id) {
+                try {
+                    const { conversacionesService, mensajesService } = require('../services/db');
+
+                    const conversacion = await conversacionesService.obtenerConversacionPorId(conversacion_id);
+
+                    if (conversacion && conversacion.usuario_id === usuarioId) {
+                        // Mensaje de consulta
+                        const siguienteOrdenConsulta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+                        const mensajeConsulta = {
+                            conversacion_id,
+                            usuario_id: usuarioId,
+                            proyecto_codigo_id: proyectoCreado.id,
+                            documento_generado_id: documentoCreado.id,
+                            tipo_mensaje: 'consulta',
+                            contenido_mensaje: `Análisis de proyecto solicitado: ${nombreProyecto || 'Proyecto sin nombre'}\n\nArchivos analizados: ${todosLosArchivos.length}\nLenguajes detectados: ${lenguajesDetectados.join(', ')}`,
+                            orden_en_conversacion: siguienteOrdenConsulta
+                        };
+                        await mensajesService.crearMensaje(mensajeConsulta);
+
+                        // Mensaje de respuesta IA
+                        const siguienteOrdenRespuesta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+                        const mensajeRespuesta = {
+                            conversacion_id,
+                            usuario_id: usuarioId,
+                            proyecto_codigo_id: proyectoCreado.id,
+                            documento_generado_id: documentoCreado.id,
+                            tipo_mensaje: 'consulta',
+                            contenido_mensaje: documentacionSRS,
+                            orden_en_conversacion: siguienteOrdenRespuesta
+                        };
+                        await mensajesService.crearMensaje(mensajeRespuesta);
+
+                        // Actualizar conversación
+                        await conversacionesService.actualizarConversacion(conversacion_id, {
+                            actualizado_en: new Date().toISOString()
+                        });
+
+                        console.log(`💬 Mensajes de proyecto guardados en conversación ${conversacion_id}`);
+                    }
+                } catch (conversacionError) {
+                    console.error('❌ Error al guardar mensajes de proyecto en conversación:', conversacionError);
+                }
+            }
+
+            // 9. Actualizar información adicional del usuario
             await usuariosService.actualizarInformacionAdicional(usuarioId, {
                 ultimo_inicio_sesion_en: new Date().toISOString()
             });
-            
+
             console.log('✅ Documentación SRS generada y guardada en BD exitosamente');
-            
-            // Responder con la documentación SRS y IDs de BD
+
+            // 10. Respuesta final
             res.status(200).json({
                 success: true,
                 proyecto_id: proyectoCreado.id,
                 documento_id: documentoCreado.id,
-                documentacion_srs: resultadoSRS.contenido,
+                documentacion_srs: documentacionSRS,
                 archivos_procesados: todosLosArchivos.length,
                 lenguajes_detectados: lenguajesDetectados,
                 estadisticas_totales: estadisticasTotales,
                 api_key_usada: resultadoSRS.api_key_usada
             });
-            
+
         } catch (analysisError) {
             await proyectosService.actualizarEstadoProcesamiento(proyectoCreado.id, 'error_analisis');
             throw analysisError;
         }
-        
+
     } catch (error) {
         console.error('❌ Error general en análisis de proyecto:', error);
         res.status(500).json({ 
@@ -269,6 +370,8 @@ router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), asy
         });
     }
 });
+
+module.exports = router;
 
 // Funciones auxiliares
 function esArchivoValido(nombreArchivo) {
@@ -321,7 +424,7 @@ router.post('/completar-documento-personalizado', requireAuth, upload.fields([
     try {
         const documentoPDF = req.files['documento_pdf'] ? req.files['documento_pdf'][0] : null;
         const archivosCodigo = req.files['archivos_codigo'] || [];
-        const { tipo_documento, nombreProyecto, descripcionProyecto } = req.body;
+        const { tipo_documento, nombreProyecto, descripcionProyecto, conversacion_id } = req.body;
         const usuarioId = req.session.user.id;
         
         if (!documentoPDF) {
@@ -496,6 +599,51 @@ router.post('/completar-documento-personalizado', requireAuth, upload.fields([
                 ultimo_inicio_sesion_en: new Date().toISOString()
             });
             
+            if (conversacion_id) {
+                try {
+                    const { conversacionesService, mensajesService } = require('../services/db');
+    
+                    const conversacion = await conversacionesService.obtenerConversacionPorId(conversacion_id);
+    
+                    if (conversacion && conversacion.usuario_id === usuarioId) {
+                        // Mensaje de consulta
+                        const siguienteOrdenConsulta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+                        const mensajeConsulta = {
+                            conversacion_id,
+                            usuario_id: usuarioId,
+                            proyecto_codigo_id: proyectoCreado.id,
+                            documento_generado_id: documentoCompletado.id,
+                            tipo_mensaje: 'consulta',
+                            contenido_mensaje: `Documento personalizado completado: ${documentoPDF.originalname}\n\nTipo: ${tipo_documento || 'SRS'}\nArchivos procesados: ${todosLosArchivos.length}\nLenguajes detectados: ${lenguajesDetectados.join(', ')}`,
+                            orden_en_conversacion: siguienteOrdenConsulta
+                        };
+                        await mensajesService.crearMensaje(mensajeConsulta);
+    
+                        // Mensaje de respuesta IA
+                        const siguienteOrdenRespuesta = await mensajesService.obtenerSiguienteOrden(conversacion_id);
+                        const mensajeRespuesta = {
+                            conversacion_id,
+                            usuario_id: usuarioId,
+                            proyecto_codigo_id: proyectoCreado.id,
+                            documento_generado_id: documentoCompletado.id,
+                            tipo_mensaje: 'respuesta',
+                            contenido_mensaje: resultado.documento_completado,
+                            orden_en_conversacion: siguienteOrdenRespuesta
+                        };
+                        await mensajesService.crearMensaje(mensajeRespuesta);
+    
+                        // Actualizar conversación
+                        await conversacionesService.actualizarConversacion(conversacion_id, {
+                            actualizado_en: new Date().toISOString()
+                        });
+    
+                        console.log(`💬 Mensajes de documento personalizado guardados en conversación ${conversacion_id}`);
+                    }
+                } catch (conversacionError) {
+                    console.error('❌ Error al guardar mensajes de documento personalizado en conversación:', conversacionError);
+                }
+            }
+
             console.log('✅ Documento personalizado completado y guardado en BD exitosamente');
             
             // Responder con el documento completado y IDs de BD
