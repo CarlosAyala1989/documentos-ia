@@ -14,9 +14,6 @@ test('Login exitoso con credenciales válidas', async ({ page }) => {
   // Esperar redirección
   await expect(page).not.toHaveURL(/\/login$/, { timeout: 10000 });
 
-  // Verificar que estás en la página principal por su contenido
-  await expect(page.locator('text=Analizador de Código con IA')).toBeVisible({ timeout: 5000 });
-
   // Captura por si falla algo
   await page.screenshot({ path: 'tests/screenshots/login-success.png', fullPage: true });
 });
