@@ -711,17 +711,13 @@ router.get('/historial', requireAuth, async (req, res) => {
         // Obtener proyectos del usuario
         const proyectos = await proyectosService.obtenerProyectosPorUsuario(usuarioId);
         
-        // Obtener todos los documentos del usuario
-        let documentos = [];
-        for (const proyecto of proyectos) {
-            const docsProyecto = await documentosService.obtenerDocumentosPorProyecto(proyecto.id);
-            documentos = documentos.concat(docsProyecto);
-        }
+        // Obtener TODOS los documentos del usuario directamente (NUEVA CONSULTA)
+        const todosLosDocumentos = await documentosService.obtenerDocumentosPorUsuario(usuarioId);
         
         // Obtener información actualizada del usuario
         const usuario = await usuariosService.obtenerUsuarioPorId(usuarioId);
         
-        console.log(`📊 Historial obtenido para usuario ${req.session.user.email}: ${proyectos.length} proyectos, ${documentos.length} documentos`);
+        console.log(`📊 Historial obtenido para usuario ${req.session.user.email}: ${proyectos.length} proyectos, ${todosLosDocumentos.length} documentos`);
         
         res.status(200).json({
             success: true,
@@ -733,10 +729,10 @@ router.get('/historial', requireAuth, async (req, res) => {
                 creado_en: usuario.creado_en
             },
             proyectos: proyectos,
-            documentos: documentos,
+            documentos: todosLosDocumentos, // Usar la nueva consulta
             estadisticas: {
                 total_proyectos: proyectos.length,
-                total_documentos: documentos.length,
+                total_documentos: todosLosDocumentos.length,
                 proyectos_completados: proyectos.filter(p => p.estado_procesamiento === 'completado').length,
                 proyectos_en_proceso: proyectos.filter(p => p.estado_procesamiento === 'procesando').length,
                 proyectos_con_error: proyectos.filter(p => p.estado_procesamiento && p.estado_procesamiento.includes('error')).length

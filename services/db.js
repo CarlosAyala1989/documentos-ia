@@ -429,11 +429,42 @@ const documentosService = {
       console.error('Error en actualizarDocumento:', error);
       throw error;
     }
+  },
+  async obtenerDocumentosPorUsuario(usuarioId) {
+    try {
+      const { data, error } = await supabase
+        .from('documentos_generados')
+        .select(`
+          *,
+          proyectos_codigo!fk_documento_proyecto(
+            id,
+            nombre_proyecto,
+            descripcion,
+            estado_procesamiento
+          )
+        `)
+        .eq('usuario_id', usuarioId)
+        .order('generado_en', { ascending: false });
+        
+      if (error) {
+        console.error('Error al obtener documentos por usuario:', error);
+        throw error;
+      }
+      return data || [];
+    } catch (error) {
+      console.error('Error en obtenerDocumentosPorUsuario:', error);
+      throw error;
+    }
   }
 };
+
+
+
+
 
 module.exports = {
   usuariosService,
   proyectosService,
   documentosService
 };
+

@@ -763,6 +763,19 @@ function analizarOtroProyecto() {
     uploadZone.scrollIntoView({ behavior: 'smooth' });
 }
 
+function obtenerBadgeTipoDocumento(tipoDocumento) {
+    if (tipoDocumento.includes('Documento Personalizado')) {
+        return '<span class="badge bg-warning text-dark me-2"><i class="fas fa-magic me-1"></i>Personalizado</span>';
+    } else if (tipoDocumento.includes('SRS') || tipoDocumento.includes('Especificación')) {
+        return '<span class="badge bg-primary me-2"><i class="fas fa-file-alt me-1"></i>SRS</span>';
+    } else if (tipoDocumento.includes('Diagrama') || tipoDocumento.includes('UML')) {
+        return '<span class="badge bg-info me-2"><i class="fas fa-project-diagram me-1"></i>Diagrama</span>';
+    } else if (tipoDocumento.includes('Análisis')) {
+        return '<span class="badge bg-success me-2"><i class="fas fa-chart-line me-1"></i>Análisis</span>';
+    }
+    return '<span class="badge bg-secondary me-2"><i class="fas fa-file me-1"></i>Documento</span>';
+}
+
 // Verificar autenticación al cargar
 async function checkAuth() {
     try {
@@ -1626,6 +1639,7 @@ function mostrarProyectos(proyectos) {
     
     proyectos.forEach(proyecto => {
         const estadoBadge = obtenerBadgeEstado(proyecto.estado_procesamiento);
+        const tipoBadge = obtenerBadgeTipoProyecto(proyecto.nombre_proyecto, proyecto.descripcion); // NUEVO
         const fechaCreacion = new Date(proyecto.creado_en).toLocaleDateString('es-ES', {
             year: 'numeric',
             month: 'short',
@@ -1642,7 +1656,10 @@ function mostrarProyectos(proyectos) {
                             <i class="fas fa-code me-2"></i>
                             ${proyecto.nombre_proyecto}
                         </h6>
-                        ${estadoBadge}
+                        <div>
+                            ${tipoBadge}
+                            ${estadoBadge}
+                        </div>
                     </div>
                     <div class="card-body">
                         <p class="card-text text-muted small">
@@ -1674,6 +1691,18 @@ function mostrarProyectos(proyectos) {
     });
 }
 
+// NUEVO: Determinar el tipo de proyecto basado en su nombre y descripción
+function obtenerBadgeTipoProyecto(nombre, descripcion) {
+    if (nombre.includes('Documento Personalizado') || descripcion.includes('Documento Personalizado')) {
+        return '<span class="badge bg-warning text-dark">Personalizado</span>';
+    } else if (nombre.includes('SRS') || descripcion.includes('SRS')) {
+        return '<span class="badge bg-info">SRS</span>';
+    } else if (nombre.includes('Diagrama') || descripcion.includes('Diagrama')) {
+        return '<span class="badge bg-primary">Diagrama</span>';
+    }
+    return '<span class="badge bg-secondary">Otro</span>';
+}
+
 // Mostrar lista de documentos
 function mostrarDocumentos(documentos) {
     const container = document.getElementById('documentosList');
@@ -1702,6 +1731,7 @@ function mostrarDocumentos(documentos) {
         
         const tipoIcon = obtenerIconoTipoDocumento(documento.tipo_documento);
         const formatoBadge = obtenerBadgeFormato(documento.formato_salida);
+        const tipoBadge = obtenerBadgeTipoDocumento(documento.tipo_documento); // NUEVO
         
         const documentoCard = `
             <div class="col-md-6 col-lg-4 mb-3">
@@ -1711,11 +1741,14 @@ function mostrarDocumentos(documentos) {
                             ${tipoIcon}
                             ${documento.tipo_documento}
                         </h6>
-                        ${formatoBadge}
+                        <div>
+                            ${tipoBadge}
+                            ${formatoBadge}
+                        </div>
                     </div>
                     <div class="card-body">
                         <p class="card-text text-muted small">
-                            <strong>Proyecto:</strong> ${documento.nombre_proyecto || 'Sin nombre'}
+                            <strong>Proyecto:</strong> ${documento.proyectos_codigo?.nombre_proyecto || documento.nombre_proyecto || 'Sin nombre'}
                         </p>
                         <div class="mb-2">
                             <small class="text-muted">
@@ -1771,16 +1804,17 @@ function obtenerBadgeFormato(formato) {
     return badges[formato] || '<span class="badge bg-secondary">Otro</span>';
 }
 
-function obtenerIconoTipoDocumento(tipo) {
-    const iconos = {
-        'SRS': '<i class="fas fa-file-alt me-2"></i>',
-        'Análisis de Código': '<i class="fas fa-code me-2"></i>',
-        'Documento Completado': '<i class="fas fa-file-check me-2"></i>',
-        'Diagramas UML': '<i class="fas fa-project-diagram me-2"></i>',
-        'Análisis de Estructura': '<i class="fas fa-sitemap me-2"></i>',
-        'Diagramas Mermaid': '<i class="fas fa-chart-line me-2"></i>'
-    };
-    return iconos[tipo] || '<i class="fas fa-file me-2"></i>';
+function obtenerIconoTipoDocumento(tipoDocumento) {
+    if (tipoDocumento.includes('Documento Personalizado')) {
+        return '<i class="fas fa-magic text-warning me-2"></i>';
+    } else if (tipoDocumento.includes('SRS')) {
+        return '<i class="fas fa-file-alt text-primary me-2"></i>';
+    } else if (tipoDocumento.includes('Diagrama') || tipoDocumento.includes('UML')) {
+        return '<i class="fas fa-project-diagram text-info me-2"></i>';
+    } else if (tipoDocumento.includes('Análisis')) {
+        return '<i class="fas fa-chart-line text-success me-2"></i>';
+    }
+    return '<i class="fas fa-file text-secondary me-2"></i>';
 }
 
 // Ver detalles de un proyecto específico
