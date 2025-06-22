@@ -647,6 +647,25 @@ const mensajesService = {
     }
   },
   
+  async obtenerMensajePorId(id) {
+    try {
+      const { data, error } = await supabase
+        .from('mensajes_conversacion')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error al obtener mensaje por ID:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerMensajePorId:', error);
+      throw error;
+    }
+  },
+
   // Obtener siguiente número de orden para una conversación
   async obtenerSiguienteOrden(conversacionId) {
     try {
