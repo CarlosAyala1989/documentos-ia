@@ -670,11 +670,216 @@ const mensajesService = {
   }
 };
 
+const contenidoCompartidoService = {
+  // Compartir una conversación completa
+  async compartirConversacion(usuarioId, conversacionId, titulo, descripcion) {
+    try {
+      // Generar slug único
+      const slug = await this.generarSlugUnico(titulo);
+      
+      const { data, error } = await supabase
+        .from('contenido_compartido')
+        .insert([{
+          usuario_id: usuarioId,
+          tipo_contenido: 'conversacion',
+          conversacion_id: conversacionId,
+          slug: slug,
+          titulo: titulo,
+          descripcion: descripcion,
+          compartido_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString()
+        }])
+        .select();
+        
+      if (error) {
+        console.error('Error al compartir conversación:', error);
+        throw error;
+      }
+      
+      // Marcar conversación como compartida
+      await supabase
+        .from('conversaciones')
+        .update({ es_compartida: true })
+        .eq('id', conversacionId);
+        
+      return data[0];
+    } catch (error) {
+      console.error('Error en compartirConversacion:', error);
+      throw error;
+    }
+  },
+
+  // Compartir una consulta individual
+  async compartirConsulta(usuarioId, mensajeId, titulo, descripcion) {
+    try {
+      const slug = await this.generarSlugUnico(titulo);
+      
+      const { data, error } = await supabase
+        .from('contenido_compartido')
+        .insert([{
+          usuario_id: usuarioId,
+          tipo_contenido: 'consulta',
+          mensaje_id: mensajeId,
+          slug: slug,
+          titulo: titulo,
+          descripcion: descripcion,
+          compartido_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString()
+        }])
+        .select();
+        
+      if (error) {
+        console.error('Error al compartir consulta:', error);
+        throw error;
+      }
+      
+      // Marcar mensaje como compartido
+      await supabase
+        .from('mensajes_conversacion')
+        .update({ es_compartido: true })
+        .eq('id', mensajeId);
+        
+      return data[0];
+    } catch (error) {
+      console.error('Error en compartirConsulta:', error);
+      throw error;
+    }
+  },
+
+  // Obtener contenido compartido por slug
+  async obtenerContenidoCompartido(slug) {
+    try {
+      const { data, error } = await supabase
+        .from('contenido_compartido')
+        .select(`
+          *,
+          usuario:usuarios(nombre, apellidos),
+          conversacion:conversaciones(*),
+          mensaje:mensajes_conversacion(*)
+        `)
+        .eq('slug', slug)
+        .eq('es_publico', true)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error al obtener contenido compartido:', error);
+        throw error;
+      }
+      
+      // Incrementar contador de vistas
+      if (data) {
+        await supabase
+          .from('contenido_compartido')
+          .update({ vistas: data.vistas + 1 })
+          .eq('id', data.id);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerContenidoCompartido:', error);
+      throw error;
+    }
+  },
+
+  // Obtener mensajes de conversación compartida
+  async obtenerMensajesConversacionCompartida(conversacionId) {
+    try {
+      const { data, error } = await supabase
+        .from('mensajes_conversacion')
+        .select('*')
+        .eq('conversacion_id', conversacionId)
+        .order('orden_en_conversacion', { ascending: true });
+        
+      if (error) {
+        console.error('Error al obtener mensajes de conversación compartida:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerMensajesConversacionCompartida:', error);
+      throw error;
+    }
+  },
+
+  // Generar slug único
+  async generarSlugUnico(titulo) {
+    const baseSlug = titulo
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+    
+    let slug = baseSlug;
+    let contador = 1;
+    
+    while (true) {
+      const { data } = await supabase
+        .from('contenido_compartido')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+        
+      if (!data) break;
+      
+      slug = `${baseSlug}-${contador}`;
+      contador++;
+    }
+    
+    return slug;
+  },
+
+  // Obtener contenido compartido por usuario
+  async obtenerContenidoCompartidoPorUsuario(usuarioId) {
+    try {
+      const { data, error } = await supabase
+        .from('contenido_compartido')
+        .select(`
+          *,
+          conversacion:conversaciones(titulo),
+          mensaje:mensajes_conversacion(contenido_mensaje)
+        `)
+        .eq('usuario_id', usuarioId)
+        .order('compartido_en', { ascending: false });
+        
+      if (error) {
+        console.error('Error al obtener contenido compartido por usuario:', error);
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error en obtenerContenidoCompartidoPorUsuario:', error);
+      throw error;
+    }
+  },
+
+  // Dejar de compartir contenido
+  async dejarDeCompartir(id, usuarioId) {
+    try {
+      const { data, error } = await supabase
+        .from('contenido_compartido')
+        .delete()
+        .eq('id', id)
+        .eq('usuario_id', usuarioId)
+        .select();
+        
+      if (error) {
+        console.error('Error al dejar de compartir:', error);
+        throw error;
+      }
+      return data[0];
+    } catch (error) {
+      console.error('Error en dejarDeCompartir:', error);
+      throw error;
+    }
+  }
+};
+
 module.exports = {
   usuariosService,
   proyectosService,
   documentosService,
   conversacionesService,
-  mensajesService
+  mensajesService,
+  contenidoCompartidoService
 };
 

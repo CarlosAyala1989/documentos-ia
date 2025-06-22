@@ -49,16 +49,22 @@ app.use((req, res, next) => {
 const authRoutes = require('./routes/auth');
 const proyectosRoutes = require('./routes/proyectos');
 const conversacionesRoutes = require('./routes/conversaciones');
+const compartirRoutes = require('./routes/compartir');
 
 // Usar rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/proyectos', proyectosRoutes);
 app.use('/api/conversaciones', conversacionesRoutes);
+app.use('/api/compartir', compartirRoutes);
 
 // Ruta para la página de inicio de sesión
 app.get('/login', (req, res) => {
   console.log('📄 Sirviendo página de login');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/compartido/:slug', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'compartido.html'));
 });
 
 // Middleware para proteger rutas

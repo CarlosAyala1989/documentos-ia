@@ -1681,6 +1681,7 @@ function mostrarListaConversaciones(conversaciones) {
         
         const card = document.createElement('div');
         card.className = 'col-md-6 col-lg-4 mb-3';
+
         card.innerHTML = `
             <div class="card h-100 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -1712,9 +1713,16 @@ function mostrarListaConversaciones(conversaciones) {
                             Actualizada: ${fechaActualizacion}
                         </small>
                     </div>
+                    ${conversacion.es_compartida ? `
+                        <div class="mb-2">
+                            <span class="badge bg-info">
+                                <i class="fas fa-share-alt me-1"></i>Compartida
+                            </span>
+                        </div>
+                    ` : ''}
                 </div>
                 <div class="card-footer bg-transparent">
-                    <div class="btn-group w-100" role="group">
+                    <div class="btn-group w-100 mb-2" role="group">
                         <button class="btn btn-outline-info btn-sm" onclick="verConversacion(${conversacion.id})">
                             <i class="fas fa-eye me-1"></i>Ver
                         </button>
@@ -1723,6 +1731,11 @@ function mostrarListaConversaciones(conversaciones) {
                         </button>
                         <button class="btn btn-outline-danger btn-sm" onclick="archivarConversacion(${conversacion.id})">
                             <i class="fas fa-archive me-1"></i>Archivar
+                        </button>
+                    </div>
+                    <div class="d-grid">
+                        <button class="btn btn-outline-primary btn-sm" onclick="compartirConversacion(${conversacion.id})">
+                            <i class="fas fa-share-alt me-1"></i>Compartir
                         </button>
                     </div>
                 </div>
@@ -1845,8 +1858,14 @@ function mostrarModalConversacion(conversacion, mensajes) {
                     <h6 class="mb-0 text-${tipoColor}">
                         <i class="fas ${tipoIcon} me-2"></i>
                         ${mensaje.tipo_mensaje === 'consulta' ? 'Consulta' : 'Respuesta'} #${index + 1}
+                        ${mensaje.es_compartido ? '<span class="badge bg-info ms-2"><i class="fas fa-share-alt"></i></span>' : ''}
                     </h6>
-                    <small class="text-muted">${fechaMensaje}</small>
+                    <div class="d-flex align-items-center">
+                        <small class="text-muted me-2">${fechaMensaje}</small>
+                        <button class="btn btn-outline-primary btn-sm" onclick="compartirConsulta(${mensaje.id})" title="Compartir esta consulta">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
                 </div>
                 <div style="white-space: pre-wrap;">${mensaje.contenido_mensaje}</div>
             `;
@@ -2565,3 +2584,149 @@ async function guardarCambiosPerfil() {
         mostrarNotificacion('Error al guardar los cambios: ' + error.message, 'danger');
     }
 }
+
+async function compartirConversacion(conversacionId) {
+    const titulo = prompt('Título para compartir (opcional):');
+    if (titulo === null) return; // Usuario canceló
+    
+    const descripcion = prompt('Descripción para compartir (opcional):');
+    if (descripcion === null) return; // Usuario canceló
+    
+    try {
+        const response = await fetch(`/api/compartir/conversacion/${conversacionId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo: titulo || undefined,
+                descripcion: descripcion || undefined
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const urlCompleta = window.location.origin + data.url_publica;
+            
+            // Mostrar modal con la URL para compartir
+            mostrarModalCompartir(urlCompleta, data.contenido);
+            
+            mostrarNotificacion('Conversación compartida exitosamente', 'success');
+        } else {
+            throw new Error(data.error || 'Error al compartir conversación');
+        }
+        
+    } catch (error) {
+        console.error('Error al compartir conversación:', error);
+        mostrarError('Error al compartir la conversación: ' + error.message);
+    }
+}
+
+async function compartirConsulta(mensajeId) {
+    const titulo = prompt('Título para la consulta compartida:');
+    if (!titulo) return;
+    
+    const descripcion = prompt('Descripción para compartir (opcional):');
+    if (descripcion === null) return; // Usuario canceló
+    
+    try {
+        const response = await fetch(`/api/compartir/consulta/${mensajeId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo: titulo,
+                descripcion: descripcion || undefined
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const urlCompleta = window.location.origin + data.url_publica;
+            
+            // Mostrar modal con la URL para compartir
+            mostrarModalCompartir(urlCompleta, data.contenido);
+            
+            mostrarNotificacion('Consulta compartida exitosamente', 'success');
+        } else {
+            throw new Error(data.error || 'Error al compartir consulta');
+        }
+        
+    } catch (error) {
+        console.error('Error al compartir consulta:', error);
+        mostrarError('Error al compartir la consulta: ' + error.message);
+    }
+}
+
+function mostrarModalCompartir(url, contenido) {
+    const modalHtml = `
+        <div class="modal fade" id="modalCompartir" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-share-alt me-2"></i>Contenido Compartido
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            ¡Tu contenido ha sido compartido exitosamente!
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">URL Pública:</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="urlCompartida" value="${url}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copiarUrl()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Cualquier persona con este enlace podrá ver tu contenido compartido.
+                            </small>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="${url}" target="_blank" class="btn btn-primary">
+                                <i class="fas fa-external-link-alt me-2"></i>Ver contenido compartido
+                            </a>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior si existe
+    const modalAnterior = document.getElementById('modalCompartir');
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
+    
+    // Agregar nuevo modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalCompartir'));
+    modal.show();
+}
+
+function copiarUrl() {
+    const input = document.getElementById('urlCompartida');
+    input.select();
+    document.execCommand('copy');
+    mostrarNotificacion('URL copiada al portapapeles', 'success');
+}
+
