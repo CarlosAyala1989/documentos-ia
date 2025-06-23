@@ -2587,11 +2587,6 @@ async function guardarCambiosPerfil() {
 
 async function compartirConversacion(conversacionId) {
     mostrarModalOpcionesCompartir('conversacion', conversacionId);
-    const titulo = prompt('Título para compartir (opcional):');
-    if (titulo === null) return; // Usuario canceló
-    
-    const descripcion = prompt('Descripción para compartir (opcional):');
-    if (descripcion === null) return; // Usuario canceló
     
     try {
         const response = await fetch(`/api/compartir/conversacion/${conversacionId}`, {
@@ -2626,11 +2621,6 @@ async function compartirConversacion(conversacionId) {
 
 async function compartirConsulta(mensajeId) {
     mostrarModalOpcionesCompartir('consulta', mensajeId);
-    const titulo = prompt('Título para la consulta compartida:');
-    if (!titulo) return;
-    
-    const descripcion = prompt('Descripción para compartir (opcional):');
-    if (descripcion === null) return; // Usuario canceló
     
     try {
         const response = await fetch(`/api/compartir/consulta/${mensajeId}`, {
