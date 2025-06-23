@@ -2586,6 +2586,7 @@ async function guardarCambiosPerfil() {
 }
 
 async function compartirConversacion(conversacionId) {
+    mostrarModalOpcionesCompartir('conversacion', conversacionId);
     const titulo = prompt('Título para compartir (opcional):');
     if (titulo === null) return; // Usuario canceló
     
@@ -2624,6 +2625,7 @@ async function compartirConversacion(conversacionId) {
 }
 
 async function compartirConsulta(mensajeId) {
+    mostrarModalOpcionesCompartir('consulta', mensajeId);
     const titulo = prompt('Título para la consulta compartida:');
     if (!titulo) return;
     
@@ -2728,5 +2730,143 @@ function copiarUrl() {
     input.select();
     document.execCommand('copy');
     mostrarNotificacion('URL copiada al portapapeles', 'success');
+}
+
+function mostrarModalOpcionesCompartir(tipo, id) {
+    const modalHtml = `
+        <div class="modal fade" id="modalOpcionesCompartir" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-share-alt me-2"></i>Opciones para Compartir
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-4">
+                            <h6 class="mb-3">¿Cómo quieres generar la URL?</h6>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="tipoUrl" id="urlPersonalizada" value="personalizada" checked>
+                                <label class="form-check-label" for="urlPersonalizada">
+                                    <strong>Nombre personalizado</strong>
+                                    <br><small class="text-muted">Ejemplo: mi-conversacion-importante</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="tipoUrl" id="urlUUID" value="uuid">
+                                <label class="form-check-label" for="urlUUID">
+                                    <strong>Identificador único (UUID)</strong>
+                                    <br><small class="text-muted">Ejemplo: 685224fb-8c90-8009-b389-da6aa017a98f</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div id="camposPersonalizados">
+                            <div class="mb-3">
+                                <label for="tituloCompartir" class="form-label">Título:</label>
+                                <input type="text" class="form-control" id="tituloCompartir" placeholder="Título para compartir">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="descripcionCompartir" class="form-label">Descripción (opcional):</label>
+                                <textarea class="form-control" id="descripcionCompartir" rows="3" placeholder="Descripción para compartir"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="procesarCompartir('${tipo}', ${id})">Compartir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior si existe
+    const modalAnterior = document.getElementById('modalOpcionesCompartir');
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
+    
+    // Agregar nuevo modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar/ocultar campos según selección
+    document.querySelectorAll('input[name="tipoUrl"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const camposPersonalizados = document.getElementById('camposPersonalizados');
+            if (this.value === 'uuid') {
+                camposPersonalizados.style.display = 'none';
+            } else {
+                camposPersonalizados.style.display = 'block';
+            }
+        });
+    });
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalOpcionesCompartir'));
+    modal.show();
+}
+
+async function procesarCompartir(tipo, id) {
+    const tipoUrl = document.querySelector('input[name="tipoUrl"]:checked').value;
+    const usarUUID = tipoUrl === 'uuid';
+    
+    let titulo = '';
+    let descripcion = '';
+    
+    if (!usarUUID) {
+        titulo = document.getElementById('tituloCompartir').value.trim();
+        descripcion = document.getElementById('descripcionCompartir').value.trim();
+        
+        if (!titulo) {
+            mostrarError('Por favor, ingresa un título');
+            return;
+        }
+    } else {
+        titulo = `Contenido compartido - ${new Date().toLocaleDateString()}`;
+        descripcion = 'Contenido compartido con identificador único';
+    }
+    
+    try {
+        const endpoint = tipo === 'conversacion' ? 
+            `/api/compartir/conversacion/${id}` : 
+            `/api/compartir/consulta/${id}`;
+            
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo: titulo,
+                descripcion: descripcion,
+                usar_uuid: usarUUID
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Cerrar modal de opciones
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalOpcionesCompartir'));
+            modal.hide();
+            
+            const urlCompleta = window.location.origin + data.url_publica;
+            
+            // Mostrar modal con la URL para compartir
+            mostrarModalCompartir(urlCompleta, data.contenido);
+            
+            mostrarNotificacion(`${tipo === 'conversacion' ? 'Conversación' : 'Consulta'} compartida exitosamente`, 'success');
+        } else {
+            throw new Error(data.error || `Error al compartir ${tipo}`);
+        }
+        
+    } catch (error) {
+        console.error(`Error al compartir ${tipo}:`, error);
+        mostrarError(`Error al compartir la ${tipo}: ` + error.message);
+    }
 }
 

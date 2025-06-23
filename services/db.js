@@ -690,12 +690,42 @@ const mensajesService = {
 };
 
 const contenidoCompartidoService = {
+
   // Compartir una conversación completa
-  async compartirConversacion(usuarioId, conversacionId, titulo, descripcion) {
+  async compartirConversacion(usuarioId, conversacionId, titulo, descripcion, usarUUID = false) {
     try {
-      // Generar slug único
-      const slug = await this.generarSlugUnico(titulo);
+      let slug;
       
+      if (usarUUID) {
+        // Generar UUID único
+        slug = generarUUID();
+      } else {
+        // Usar título personalizado con verificación global
+        if (await verificarSlugExiste(titulo.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-'))) {
+          throw new Error('Este nombre ya está siendo usado por otro usuario. Por favor, elige un nombre diferente.');
+        }
+        slug = await this.generarSlugUnico(titulo);
+      }
+      
+      async function verificarSlugExiste(slug) {
+        try {
+          const { data, error } = await supabase
+            .from('contenido_compartido')
+            .select('id')
+            .eq('slug', slug)
+            .single();
+            
+          if (error && error.code !== 'PGRST116') {
+            throw error;
+          }
+          
+          return !!data; // Retorna true si existe, false si no
+        } catch (error) {
+          console.error('Error en verificarSlugExiste:', error);
+          throw error;
+        }
+      }
+
       const { data, error } = await supabase
         .from('contenido_compartido')
         .insert([{
@@ -729,9 +759,20 @@ const contenidoCompartidoService = {
   },
 
   // Compartir una consulta individual
-  async compartirConsulta(usuarioId, mensajeId, titulo, descripcion) {
+  async compartirConsulta(usuarioId, mensajeId, titulo, descripcion, usarUUID = false) {
     try {
-      const slug = await this.generarSlugUnico(titulo);
+      let slug;
+      
+      if (usarUUID) {
+        // Generar UUID único
+        slug = generarUUID();
+      } else {
+        // Usar título personalizado con verificación global
+        if (await verificarSlugExiste(titulo.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-'))) {
+          throw new Error('Este nombre ya está siendo usado por otro usuario. Por favor, elige un nombre diferente.');
+        }
+        slug = await this.generarSlugUnico(titulo);
+      }
       
       const { data, error } = await supabase
         .from('contenido_compartido')
@@ -893,6 +934,14 @@ const contenidoCompartidoService = {
   }
 };
 
+function generarUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 module.exports = {
   usuariosService,
   proyectosService,
@@ -901,4 +950,3 @@ module.exports = {
   mensajesService,
   contenidoCompartidoService
 };
-

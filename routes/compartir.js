@@ -6,8 +6,8 @@ const { contenidoCompartidoService, conversacionesService, mensajesService } = r
 router.post('/conversacion/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { titulo, descripcion } = req.body;
-    const usuarioId = req.session.user?.id; // Cambiado de usuario a user
+    const { titulo, descripcion, usar_uuid } = req.body;
+    const usuarioId = req.session.user?.id;
 
     if (!usuarioId) {
       return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
@@ -23,7 +23,8 @@ router.post('/conversacion/:id', async (req, res) => {
       usuarioId, 
       id, 
       titulo || conversacion.titulo, 
-      descripcion || conversacion.descripcion
+      descripcion || conversacion.descripcion,
+      usar_uuid || false
     );
 
     res.json({ 
@@ -42,8 +43,8 @@ router.post('/conversacion/:id', async (req, res) => {
 router.post('/consulta/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { titulo, descripcion } = req.body;
-    const usuarioId = req.session.user?.id; // Cambiado de usuario a user
+    const { titulo, descripcion, usar_uuid } = req.body;
+    const usuarioId = req.session.user?.id;
 
     if (!usuarioId) {
       return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
@@ -59,7 +60,8 @@ router.post('/consulta/:id', async (req, res) => {
       usuarioId, 
       id, 
       titulo, 
-      descripcion
+      descripcion,
+      usar_uuid || false
     );
 
     res.json({ 
