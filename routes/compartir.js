@@ -2,12 +2,21 @@ const express = require('express');
 const router = express.Router();
 const { contenidoCompartidoService, conversacionesService, mensajesService } = require('../services/db');
 
+// Middleware de autenticación
+const requireAuth = (req, res, next) => {
+  if (req.session.user) {
+    next();
+  } else {
+    res.status(401).json({ success: false, error: 'Usuario no autenticado' });
+  }
+};
+
 // Compartir una conversación completa
-router.post('/conversacion/:id', async (req, res) => {
+router.post('/conversacion/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { titulo, descripcion, usar_uuid } = req.body;
-    const usuarioId = req.session.user?.id;
+    const usuarioId = req.session.user.id; // Ya no necesitas el ?. porque requireAuth garantiza que existe
 
     if (!usuarioId) {
       return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
@@ -40,11 +49,11 @@ router.post('/conversacion/:id', async (req, res) => {
 });
 
 // Compartir una consulta individual
-router.post('/consulta/:id', async (req, res) => {
+router.post('/consulta/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { titulo, descripcion, usar_uuid } = req.body;
-    const usuarioId = req.session.user?.id;
+    const usuarioId = req.session.user.id;
 
     if (!usuarioId) {
       return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
@@ -103,13 +112,9 @@ router.get('/:slug', async (req, res) => {
 });
 
 // Obtener contenido compartido del usuario
-router.get('/usuario/mis-compartidos', async (req, res) => {
+router.get('/usuario/mis-compartidos', requireAuth, async (req, res) => {
   try {
-    const usuarioId = req.session.user?.id; // Cambiado de usuario a user
-
-    if (!usuarioId) {
-      return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
-    }
+    const usuarioId = req.session.user.id; // Simplificado
 
     const contenido = await contenidoCompartidoService.obtenerContenidoCompartidoPorUsuario(usuarioId);
 
@@ -122,14 +127,10 @@ router.get('/usuario/mis-compartidos', async (req, res) => {
 });
 
 // Dejar de compartir contenido
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const usuarioId = req.session.user?.id; // Cambiado de usuario a user
-
-    if (!usuarioId) {
-      return res.status(401).json({ success: false, error: 'Usuario no autenticado' });
-    }
+    const usuarioId = req.session.user.id;
 
     await contenidoCompartidoService.dejarDeCompartir(id, usuarioId);
 
@@ -137,6 +138,49 @@ router.delete('/:id', async (req, res) => {
 
   } catch (error) {
     console.error('Error al dejar de compartir:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.put('/editar/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { titulo, descripcion, tipoSlug, nuevoSlug } = req.body;
+    const usuarioId = req.session.user.id;
+
+    if (!titulo || titulo.trim() === '') {
+      return res.status(400).json({ success: false, error: 'El título es requerido' });
+    }
+
+    // Validar slug personalizado si se proporciona
+    if (tipoSlug === 'nombre' && (!nuevoSlug || !/^[a-zA-Z0-9-]+$/.test(nuevoSlug))) {
+      return res.status(400).json({ success: false, error: 'El nombre único debe contener solo letras, números y guiones' });
+    }
+
+    const contenidoActualizado = await contenidoCompartidoService.editarContenidoCompartido(
+      id, 
+      usuarioId, 
+      titulo.trim(), 
+      descripcion?.trim(),
+      tipoSlug,
+      nuevoSlug
+    );
+
+    const response = { 
+      success: true, 
+      contenido: contenidoActualizado,
+      message: 'Contenido actualizado exitosamente'
+    };
+    
+    // Incluir el nuevo slug en la respuesta si se generó uno
+    if (contenidoActualizado.slug) {
+      response.nuevoSlug = contenidoActualizado.slug;
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error al editar contenido compartido:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

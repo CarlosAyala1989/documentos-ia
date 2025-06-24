@@ -1568,6 +1568,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (oldLogoutBtn) {
         oldLogoutBtn.addEventListener('click', logout);
     }
+
+    // Event listeners para el modal de edición
+    const radioButtons = document.querySelectorAll('input[name="tipoSlug"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            toggleCampoNombreUnico();
+            actualizarPreviewUrl();
+        });
+    });
+
     document.getElementById('perfilBtn').addEventListener('click', mostrarPerfil);
     document.getElementById('guardarPerfil').addEventListener('click', guardarCambiosPerfil);
 
@@ -1577,6 +1587,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('nuevaConversacionBtn').addEventListener('click', crearNuevaConversacion);
     document.getElementById('enviarConsulta').addEventListener('click', enviarNuevaConsulta);
     document.getElementById('continuarConversacion').addEventListener('click', continuarConversacionEnPrincipal);
+    document.getElementById('nuevoSlug').addEventListener('input', function() {
+        actualizarPreviewUrl();
+    });
 });
 
 // Cargar información del usuario para mostrar en el dropdown
@@ -2123,6 +2136,48 @@ function mostrarProyectos(proyectos) {
         container.innerHTML += proyectoCard;
     });
 }
+
+function toggleCampoNombreUnico() {
+    const nombreUnicoRadio = document.getElementById('nombreUnico');
+    const campoNombreUnico = document.getElementById('campoNombreUnico');
+    const previewDiv = document.getElementById('previewNuevaUrl');
+    
+    if (nombreUnicoRadio.checked) {
+        campoNombreUnico.style.display = 'block';
+        previewDiv.style.display = 'block';
+    } else {
+        campoNombreUnico.style.display = 'none';
+        if (document.getElementById('mantenerSlug').checked) {
+            previewDiv.style.display = 'none';
+        } else {
+            previewDiv.style.display = 'block';
+        }
+    }
+}
+
+function actualizarPreviewUrl() {
+    const tipoSlug = document.querySelector('input[name="tipoSlug"]:checked').value;
+    const previewDiv = document.getElementById('previewNuevaUrl');
+    const previewInput = document.getElementById('nuevaUrlPreview');
+    const baseUrl = window.location.origin + '/compartido/';
+    
+    if (tipoSlug === 'mantener') {
+        previewDiv.style.display = 'none';
+    } else if (tipoSlug === 'nombre') {
+        const nuevoSlug = document.getElementById('nuevoSlug').value.trim();
+        if (nuevoSlug) {
+            previewInput.value = baseUrl + nuevoSlug;
+            previewDiv.style.display = 'block';
+        } else {
+            previewDiv.style.display = 'none';
+        }
+    } else if (tipoSlug === 'uuid') {
+        previewInput.value = baseUrl + '[UUID-generado-automáticamente]';
+        previewDiv.style.display = 'block';
+    }
+}
+
+
 
 // NUEVO: Determinar el tipo de proyecto basado en su nombre y descripción
 function obtenerBadgeTipoProyecto(nombre, descripcion) {
@@ -2860,3 +2915,163 @@ async function procesarCompartir(tipo, id) {
     }
 }
 
+document.getElementById('linksCompartidosBtn').addEventListener('click', function() {
+    mostrarLinksCompartidos();
+});
+
+document.getElementById('actualizarLinksCompartidos').addEventListener('click', function() {
+    cargarLinksCompartidos();
+});
+
+async function mostrarLinksCompartidos() {
+    const modal = new bootstrap.Modal(document.getElementById('linksCompartidosModal'));
+    modal.show();
+    await cargarLinksCompartidos();
+}
+
+async function cargarLinksCompartidos() {
+    const loadingElement = document.getElementById('loadingLinksCompartidos');
+    const listElement = document.getElementById('linksCompartidosList');
+    const noLinksElement = document.getElementById('noLinksMessage');
+    
+    try {
+        loadingElement.style.display = 'block';
+        listElement.innerHTML = '';
+        noLinksElement.style.display = 'none';
+        
+        const response = await fetch('/api/compartir/usuario/mis-compartidos');
+        const data = await response.json();
+        
+        if (data.success && data.contenido && data.contenido.length > 0) {
+            mostrarListaLinksCompartidos(data.contenido);
+        } else {
+            noLinksElement.style.display = 'block';
+        }
+        
+    } catch (error) {
+        console.error('Error al cargar links compartidos:', error);
+        mostrarError('Error al cargar los links compartidos');
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function mostrarListaLinksCompartidos(links) {
+    const listElement = document.getElementById('linksCompartidosList');
+    
+    const html = links.map(link => {
+        const urlCompleta = window.location.origin + '/compartido/' + link.slug;
+        return `
+            <div class="col-12 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-1">${link.titulo}</h6>
+                                <p class="card-text text-muted small mb-2">${link.descripcion || 'Sin descripción'}</p>
+                                <div class="d-flex align-items-center text-muted small">
+                                    <span class="me-3">
+                                        <i class="fas fa-eye me-1"></i>${link.vistas} vistas
+                                    </span>
+                                    <span class="me-3">
+                                        <i class="fas fa-calendar me-1"></i>${new Date(link.compartido_en).toLocaleDateString('es-ES')}
+                                    </span>
+                                    <span class="badge bg-${link.tipo_contenido === 'conversacion' ? 'primary' : 'info'}">
+                                        ${link.tipo_contenido === 'conversacion' ? 'Conversación' : 'Consulta'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group-vertical" role="group">
+                                    <a href="${urlCompleta}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-external-link-alt me-1"></i>Ver
+                                    </a>
+                                    <!-- ELIMINADO: Botón de editar -->
+                                    <button class="btn btn-outline-danger btn-sm" onclick="eliminarLinkCompartido(${link.id}, '${link.titulo}')">
+                                        <i class="fas fa-trash me-1"></i>Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    listElement.innerHTML = html;
+}
+
+async function eliminarLinkCompartido(id, titulo) {
+    if (!confirm(`¿Estás seguro de que quieres eliminar el link "${titulo}"?\n\nEsta acción no se puede deshacer y el contenido dejará de ser accesible públicamente.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/compartir/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacion('Link eliminado exitosamente', 'success');
+            await cargarLinksCompartidos();
+        } else {
+            throw new Error(data.error || 'Error al eliminar el link');
+        }
+        
+    } catch (error) {
+        console.error('Error al eliminar link:', error);
+        mostrarError('Error al eliminar el link: ' + error.message);
+    }
+}
+
+function copiarUrlLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        mostrarNotificacion('URL copiada al portapapeles', 'success');
+    }).catch(() => {
+        mostrarError('Error al copiar la URL');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar event listeners para los radio buttons del modal de edición
+    document.querySelectorAll('input[name="tipoSlug"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const campoNombreUnico = document.getElementById('campoNombreUnico');
+            const previewNuevaUrl = document.getElementById('previewNuevaUrl');
+            const nuevaUrlPreview = document.getElementById('nuevaUrlPreview');
+            const baseUrl = window.location.origin + '/compartido/';
+            
+            if (this.value === 'nombre') {
+                campoNombreUnico.style.display = 'block';
+                previewNuevaUrl.style.display = 'none';
+            } else if (this.value === 'uuid') {
+                campoNombreUnico.style.display = 'none';
+                previewNuevaUrl.style.display = 'block';
+                nuevaUrlPreview.value = baseUrl + 'nuevo-uuid-generado';
+            } else {
+                campoNombreUnico.style.display = 'none';
+                previewNuevaUrl.style.display = 'none';
+            }
+        });
+    });
+    
+    // Event listener para el campo de nombre único personalizado
+    const nuevoSlugInput = document.getElementById('nuevoSlug');
+    if (nuevoSlugInput) {
+        nuevoSlugInput.addEventListener('input', function() {
+            const previewNuevaUrl = document.getElementById('previewNuevaUrl');
+            const nuevaUrlPreview = document.getElementById('nuevaUrlPreview');
+            const baseUrl = window.location.origin + '/compartido/';
+            
+            if (this.value.trim()) {
+                previewNuevaUrl.style.display = 'block';
+                nuevaUrlPreview.value = baseUrl + this.value.trim();
+            } else {
+                previewNuevaUrl.style.display = 'none';
+            }
+        });
+    }
+});

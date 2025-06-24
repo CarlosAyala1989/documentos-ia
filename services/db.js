@@ -690,7 +690,56 @@ const mensajesService = {
 };
 
 const contenidoCompartidoService = {
-
+  async editarContenidoCompartido(id, usuarioId, titulo, descripcion, tipoSlug = 'mantener', nuevoSlug = null) {
+    try {
+      // Verificar que el contenido pertenece al usuario
+      const contenidoExistente = await this.pool.query(
+        'SELECT * FROM contenido_compartido WHERE id = ? AND usuario_id = ?',
+        [id, usuarioId]
+      );
+      
+      if (contenidoExistente.length === 0) {
+        throw new Error('Contenido no encontrado o no tienes permisos para editarlo');
+      }
+      
+      let slugFinal = contenidoExistente[0].slug; // Mantener el slug actual por defecto
+      
+      // Generar nuevo slug según el tipo seleccionado
+      if (tipoSlug === 'uuid') {
+        slugFinal = this.generarUUID();
+      } else if (tipoSlug === 'nombre' && nuevoSlug) {
+        // Verificar que el slug personalizado no esté en uso
+        const slugExistente = await this.pool.query(
+          'SELECT id FROM contenido_compartido WHERE slug = ? AND id != ?',
+          [nuevoSlug, id]
+        );
+        
+        if (slugExistente.length > 0) {
+          throw new Error('El nombre único ya está en uso. Por favor, elige otro.');
+        }
+        
+        slugFinal = nuevoSlug;
+      }
+      
+      // Actualizar el contenido
+      await this.pool.query(
+        'UPDATE contenido_compartido SET titulo = ?, descripcion = ?, slug = ? WHERE id = ? AND usuario_id = ?',
+        [titulo, descripcion, slugFinal, id, usuarioId]
+      );
+      
+      // Retornar el contenido actualizado
+      const contenidoActualizado = await this.pool.query(
+        'SELECT * FROM contenido_compartido WHERE id = ? AND usuario_id = ?',
+        [id, usuarioId]
+      );
+      
+      return contenidoActualizado[0];
+      
+    } catch (error) {
+      console.error('Error en editarContenidoCompartido:', error);
+      throw error;
+    }
+  },
   // Compartir una conversación completa
   async compartirConversacion(usuarioId, conversacionId, titulo, descripcion, usarUUID = false) {
     try {
@@ -941,6 +990,8 @@ function generarUUID() {
     return v.toString(16);
   });
 }
+
+
 
 module.exports = {
   usuariosService,

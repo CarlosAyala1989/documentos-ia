@@ -49,6 +49,12 @@
                                 Mi Perfil
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="linksCompartidosBtn">
+                                <i class="fas fa-share-alt me-2"></i>
+                                Mis Links Compartidos
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item text-danger" href="#" id="logoutBtn">
@@ -660,5 +666,53 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal para gestionar links compartidos -->
+    <div class="modal fade" id="linksCompartidosModal" tabindex="-1" aria-labelledby="linksCompartidosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="linksCompartidosModalLabel">
+                        <i class="fas fa-share-alt me-2"></i>
+                        Mis Links Compartidos
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <p class="text-muted">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Aquí puedes gestionar todos los contenidos que has compartido públicamente.
+                        </p>
+                    </div>
+
+                    <!-- Loading -->
+                    <div id="loadingLinksCompartidos" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando links compartidos...</p>
+                    </div>
+
+                    <!-- Lista de links compartidos -->
+                    <div id="linksCompartidosList"></div>
+
+                    <!-- Mensaje cuando no hay links -->
+                    <div id="noLinksMessage" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-share-alt fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No tienes contenido compartido</h5>
+                        <p class="text-muted">Cuando compartas conversaciones o consultas, aparecerán aquí.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" id="actualizarLinksCompartidos">
+                        <i class="fas fa-sync-alt me-2"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

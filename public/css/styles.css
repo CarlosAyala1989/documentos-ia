@@ -863,3 +863,32 @@ body {
     border-color: #17a2b8;
     box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
 }
+
+
+/* Estilos para gestión de links compartidos */
+.links-compartidos-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0;
+}
+
+.links-compartidos-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.btn-group-vertical .btn {
+    margin-bottom: 0.25rem;
+}
+
+.btn-group-vertical .btn:last-child {
+    margin-bottom: 0;
+}
+
+#linksCompartidosList .input-group-sm {
+    max-width: 400px;
+}
+
+.modal-xl .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
