@@ -56,13 +56,25 @@ function handleMultipleFiles(files) {
     // Agregar archivos a la lista existente
     files.forEach(file => {
         const extension = file.name.split('.').pop().toLowerCase();
-        const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql', 'zip', 'rar', 'txt', 'md'];
+        const extensionesSoportadas = ['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'go', 'rs', 'html', 'css', 'scss', 'vue', 'kt', 'swift', 'dart', 'sql', 'txt', 'md'];
         
-        // Soportar ZIP y RAR
-        if (extensionesSoportadas.includes(extension) || 
+        // Verificar si es un archivo comprimido
+        const extensionesComprimidas = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+        const esArchivoComprimido = extensionesComprimidas.includes(extension) || 
             file.type === 'application/zip' || 
             file.type === 'application/x-rar-compressed' ||
-            file.type === 'application/vnd.rar') {
+            file.type === 'application/vnd.rar' ||
+            file.type === 'application/x-7z-compressed' ||
+            file.type === 'application/x-tar' ||
+            file.type === 'application/gzip';
+        
+        if (esArchivoComprimido) {
+            // Mostrar mensaje de error al usuario
+            mostrarMensajeError(`❌ No se permiten archivos comprimidos: ${file.name}\n\nPor favor, extrae los archivos y súbelos individualmente.`);
+            return; // Saltar este archivo
+        }
+        
+        if (extensionesSoportadas.includes(extension)) {
             // Verificar si el archivo ya está en la lista
             const existeArchivo = selectedFiles.some(existingFile => 
                 existingFile.name === file.name && existingFile.size === file.size
@@ -71,6 +83,9 @@ function handleMultipleFiles(files) {
             if (!existeArchivo) {
                 selectedFiles.push(file);
             }
+        } else {
+            // Mostrar mensaje para extensiones no soportadas
+            mostrarMensajeError(`❌ Tipo de archivo no soportado: ${file.name}\n\nExtensiones permitidas: ${extensionesSoportadas.join(', ')}`);
         }
     });
     
@@ -1757,6 +1772,30 @@ function mostrarListaConversaciones(conversaciones) {
         container.appendChild(card);
     });
 }
+
+function mostrarMensajeError(mensaje) {
+    // Crear elemento de alerta
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed';
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>Error de archivo:</strong><br>
+        ${mensaje.replace(/\n/g, '<br>')}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Agregar al body
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
 
 // Obtener badge de estado de conversación
 function obtenerBadgeEstadoConversacion(estado) {

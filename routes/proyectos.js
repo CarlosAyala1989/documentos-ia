@@ -26,6 +26,32 @@ const requireAuth = (req, res, next) => {
   }
 };
 
+const validarTiposArchivo = (req, res, next) => {
+    if (req.files && req.files.length > 0) {
+        const extensionesProhibidas = ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'];
+        const tiposProhibidos = [
+            'application/zip',
+            'application/x-rar-compressed',
+            'application/vnd.rar',
+            'application/x-7z-compressed',
+            'application/x-tar',
+            'application/gzip'
+        ];
+        
+        for (const file of req.files) {
+            const extension = file.originalname.split('.').pop().toLowerCase();
+            
+            if (extensionesProhibidas.includes(extension) || tiposProhibidos.includes(file.mimetype)) {
+                return res.status(400).json({
+                    error: 'Archivos comprimidos no permitidos',
+                    detalle: `El archivo ${file.originalname} es un archivo comprimido. Por favor, extrae los archivos y súbelos individualmente.`
+                });
+            }
+        }
+    }
+    next();
+};
+
 // Ruta principal: Analizar código con IA (MODIFICADA)
 router.post('/analizar-codigo', requireAuth, async (req, res) => {
   try {
@@ -184,7 +210,7 @@ router.post('/analizar-codigo', requireAuth, async (req, res) => {
 });
 
 // Nueva ruta para analizar proyecto completo (MODIFICADA)
-router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), async (req, res) => {
+router.post('/analizar-proyecto', requireAuth, upload.array('archivos', 50), validarTiposArchivo, async (req, res) => {
     try {
         const archivos = req.files;
         const { nombreProyecto, descripcionProyecto, conversacion_id } = req.body;
